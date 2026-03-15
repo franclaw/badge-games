@@ -2,10 +2,52 @@
 @tailwind components;
 @tailwind utilities;
 
+:root {
+  color-scheme: dark;
+}
+
 .card {
   @apply rounded-2xl border border-slate-700 bg-slate-900 p-4 shadow;
 }
 
 .btn {
-  @apply rounded-xl bg-cyan-600 px-3 py-2 font-medium text-white hover:bg-cyan-500;
+  @apply rounded-xl bg-cyan-600 px-3 py-2 font-medium text-white hover:bg-cyan-500 disabled:opacity-50;
+}
+
+.pad {
+  @apply rounded-xl border border-slate-600 bg-slate-800 px-3 py-2 text-sm font-semibold text-slate-100 active:bg-slate-700;
+}
+
+.badge-shell {
+  @apply mx-auto w-[340px] max-w-full rounded-[34px] border-[5px] border-slate-500 bg-slate-700 p-4 shadow-2xl;
+  background-image: linear-gradient(160deg, #5b6472 0%, #3f4651 55%, #2f3540 100%);
+}
+
+.badge-display {
+  @apply rounded-2xl border-4 border-slate-800 bg-black p-3;
+  box-shadow: inset 0 0 0 2px #1f2937;
+}
+
+.badge-header {
+  @apply mb-2 text-[11px] uppercase tracking-wide text-slate-300;
+}
+
+.badge-footer {
+  @apply mt-2 text-[11px] text-slate-400;
+}
+
+.badge-screen {
+  @apply h-[360px] overflow-hidden rounded-lg bg-[#05070a] p-3 text-[12px] leading-[1.2] text-green-300;
+}
+
+.dpad {
+  @apply grid grid-cols-3 gap-2;
+}
+
+.dpad button {
+  @apply pad h-10;
+}
+
+.face-grid {
+  @apply grid grid-cols-2 gap-2;
 }
