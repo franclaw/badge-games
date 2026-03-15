@@ -69,16 +69,20 @@ app.innerHTML = `
         </div>
       </div>
 
-      <div class="badge-shell">
+      <div class="badge-shell badge-real">
+        <div class="badge-topline">
+          <span>FRI3D 2024</span>
+          <span>EMULATOR</span>
+        </div>
+
         <div class="badge-display">
           <div id="display-header" class="badge-header">No game loaded</div>
           <pre id="display" class="badge-screen">Booting...</pre>
           <div id="display-footer" class="badge-footer">240x320 text display simulation</div>
         </div>
 
-        <div class="mt-4 grid grid-cols-2 gap-4">
-          <div>
-            <div class="mb-1 text-xs text-slate-200">D-Pad</div>
+        <div class="badge-controls">
+          <div class="badge-left">
             <div class="dpad">
               <span></span><button data-key="up">↑</button><span></span>
               <button data-key="left">←</button><span class="pad text-center">•</span><button data-key="right">→</button>
@@ -86,18 +90,16 @@ app.innerHTML = `
             </div>
           </div>
 
-          <div>
-            <div class="mb-1 text-xs text-slate-200">Buttons</div>
-            <div class="face-grid mb-2">
-              <button data-key="x" class="pad">X</button>
-              <button data-key="y" class="pad">Y</button>
-              <button data-key="a" class="pad">A</button>
-              <button data-key="b" class="pad">B</button>
-            </div>
-            <div class="grid grid-cols-2 gap-2">
-              <button data-key="menu" class="pad">MENU</button>
-              <button data-key="start" class="pad">START</button>
-            </div>
+          <div class="badge-middle">
+            <button data-key="menu" class="pad small">MENU</button>
+            <button data-key="start" class="pad small">START</button>
+          </div>
+
+          <div class="badge-right face-grid">
+            <button data-key="x" class="pad">X</button>
+            <button data-key="y" class="pad">Y</button>
+            <button data-key="a" class="pad">A</button>
+            <button data-key="b" class="pad">B</button>
           </div>
         </div>
       </div>
