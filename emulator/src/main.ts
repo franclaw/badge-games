@@ -1,4 +1,5 @@
 import './style.css';
+import { badgeSpecs, type BadgeSpec } from './badgeSpecs';
 
 type InputState = {
   up: boolean;
@@ -69,27 +70,16 @@ app.innerHTML = `
         </div>
       </div>
 
-      <div class="badge-photo-stage">
-        <img class="badge-photo" src="https://raw.githubusercontent.com/Fri3dCamp/badge_2024/main/docs/badge2024.jpg" alt="Fri3d Badge 2024" />
+      <div id="badge-stage" class="badge-photo-stage">
+        <img id="badge-photo" class="badge-photo" src="" alt="Badge skin" />
 
-        <div class="screen-overlay">
+        <div id="screen-overlay" class="screen-overlay">
           <div id="display-header" class="badge-header">No game loaded</div>
           <pre id="display" class="badge-screen">Booting...</pre>
           <div id="display-footer" class="badge-footer">240x320 text display simulation</div>
         </div>
 
-        <button data-key="up" class="hotspot circle" style="left:27%; top:69%;">↑</button>
-        <button data-key="down" class="hotspot circle" style="left:27%; top:86%;">↓</button>
-        <button data-key="left" class="hotspot circle" style="left:18%; top:78%;">←</button>
-        <button data-key="right" class="hotspot circle" style="left:36%; top:78%;">→</button>
-
-        <button data-key="x" class="hotspot circle" style="left:73%; top:70%;">X</button>
-        <button data-key="y" class="hotspot circle" style="left:82%; top:78%;">Y</button>
-        <button data-key="a" class="hotspot circle" style="left:64%; top:78%;">A</button>
-        <button data-key="b" class="hotspot circle" style="left:73%; top:86%;">B</button>
-
-        <button data-key="menu" class="hotspot pill" style="left:47%; top:79%;">MENU</button>
-        <button data-key="start" class="hotspot pill" style="left:56%; top:79%;">START</button>
+        <div id="hotspots-layer"></div>
       </div>
     </section>
 
@@ -120,6 +110,9 @@ const motionStatusEl = document.getElementById('motion-status')!;
 const headerEl = document.getElementById('display-header')!;
 const footerEl = document.getElementById('display-footer')!;
 const pickerEl = document.getElementById('game-picker') as HTMLSelectElement;
+const badgePhotoEl = document.getElementById('badge-photo') as HTMLImageElement;
+const screenOverlayEl = document.getElementById('screen-overlay') as HTMLDivElement;
+const hotspotsLayerEl = document.getElementById('hotspots-layer') as HTMLDivElement;
 
 const api: EmulatorAPI = {
   width: DISPLAY_W,
@@ -163,16 +156,37 @@ document.addEventListener('keyup', (e) => {
   if (k) manual[k] = false;
 });
 
-document.querySelectorAll<HTMLButtonElement>('[data-key]').forEach((btn) => {
-  const k = btn.dataset.key as keyof InputState;
-  const on = () => (manual[k] = true);
-  const off = () => (manual[k] = false);
-  btn.addEventListener('mousedown', on);
-  btn.addEventListener('mouseup', off);
-  btn.addEventListener('mouseleave', off);
-  btn.addEventListener('touchstart', on, { passive: true });
-  btn.addEventListener('touchend', off, { passive: true });
-});
+function bindHotspotInputs() {
+  document.querySelectorAll<HTMLButtonElement>('[data-key]').forEach((btn) => {
+    const k = btn.dataset.key as keyof InputState;
+    const on = () => (manual[k] = true);
+    const off = () => (manual[k] = false);
+    btn.onmousedown = on;
+    btn.onmouseup = off;
+    btn.onmouseleave = off;
+    btn.ontouchstart = () => on();
+    btn.ontouchend = () => off();
+  });
+}
+
+function applyBadgeSpec(spec: BadgeSpec) {
+  badgePhotoEl.src = spec.imageUrl;
+  badgePhotoEl.alt = spec.name;
+
+  screenOverlayEl.style.left = `${spec.screen.leftPct}%`;
+  screenOverlayEl.style.top = `${spec.screen.topPct}%`;
+  screenOverlayEl.style.width = `${spec.screen.widthPct}%`;
+  screenOverlayEl.style.height = `${spec.screen.heightPct}%`;
+
+  hotspotsLayerEl.innerHTML = spec.controls
+    .map(
+      (c) =>
+        `<button data-key="${c.key}" class="hotspot ${c.shape}" style="left:${c.leftPct}%; top:${c.topPct}%;">${c.label}</button>`,
+    )
+    .join('');
+
+  bindHotspotInputs();
+}
 
 function motionToInput(): Partial<InputState> {
   if (!motionState.enabled) return {};
@@ -433,6 +447,7 @@ function loop() {
   requestAnimationFrame(loop);
 }
 
+applyBadgeSpec(badgeSpecs.fri3d_2024);
 refreshPicker();
 loadGame('tilt-maze');
 requestAnimationFrame(loop);
