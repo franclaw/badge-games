@@ -30,6 +30,12 @@ type Game = {
   tick: (dtMs: number, input: InputState, api: EmulatorAPI) => void;
 };
 
+type PyGameFrame = {
+  header?: string;
+  footer?: string;
+  lines?: string[];
+};
+
 const DISPLAY_W = 28;
 const DISPLAY_H = 18;
 const displayLines: string[] = [];
@@ -97,8 +103,11 @@ app.innerHTML = `
       <input id="manifest-file" type="file" accept="application/json" class="block w-full text-sm" />
       <p class="text-xs text-slate-400">Manifest format: {"name":"My Game","moduleUrl":"https://..."}</p>
 
-      <div class="border-t border-slate-700 pt-2 text-xs text-slate-400">
-        MicroPython .py isn’t executed directly in browser yet. For now, use adapter JS modules.
+      <div class="border-t border-slate-700 pt-3 space-y-2">
+        <h3 class="text-sm font-semibold">Python runtime (Pyodide alpha)</h3>
+        <input id="python-file" type="file" accept=".py,text/x-python" class="block w-full text-sm" />
+        <button id="btn-run-python" class="btn w-full">Run Python game</button>
+        <p class="text-xs text-slate-400">Runs real Python in-browser. For badge parity, use the same simple API: <code>init()</code> and <code>update(dt_ms, input_state)</code>.</p>
       </div>
     </section>
   </div>
@@ -113,6 +122,7 @@ const pickerEl = document.getElementById('game-picker') as HTMLSelectElement;
 const badgePhotoEl = document.getElementById('badge-photo') as HTMLImageElement;
 const screenOverlayEl = document.getElementById('screen-overlay') as HTMLDivElement;
 const hotspotsLayerEl = document.getElementById('hotspots-layer') as HTMLDivElement;
+const pythonFileEl = document.getElementById('python-file') as HTMLInputElement;
 
 const api: EmulatorAPI = {
   width: DISPLAY_W,
@@ -247,6 +257,106 @@ async function enableMotion() {
 }
 
 (document.getElementById('btn-motion') as HTMLButtonElement).addEventListener('click', enableMotion);
+
+const PY_BOOTSTRAP = `
+import json
+_last_frame = {"header": "Python runtime", "footer": "", "lines": ["Ready"]}
+
+def _oc_set_frame(frame):
+    global _last_frame
+    _last_frame = frame
+
+def _oc_get_frame():
+    return _last_frame
+
+def _oc_call_update(dt_ms, input_json):
+    state = json.loads(input_json)
+    return update(dt_ms, state)
+`;
+
+async function ensurePyodide() {
+  const w = window as any;
+  if (w.__pyodideReady) return w.__pyodideReady;
+
+  w.__pyodideReady = (async () => {
+    if (!w.loadPyodide) {
+      await new Promise<void>((resolve, reject) => {
+        const s = document.createElement('script');
+        s.src = 'https://cdn.jsdelivr.net/pyodide/v0.27.2/full/pyodide.js';
+        s.onload = () => resolve();
+        s.onerror = () => reject(new Error('Failed to load pyodide.js'));
+        document.head.appendChild(s);
+      });
+    }
+    const py = await w.loadPyodide();
+    py.runPython(PY_BOOTSTRAP);
+    return py;
+  })();
+
+  return w.__pyodideReady;
+}
+
+function makePythonGame(source: string): Game {
+  let py: any = null;
+  let updateFn: any = null;
+
+  return {
+    id: 'python-live',
+    name: 'Python Game (live)',
+    init(api2) {
+      api2.clear();
+      api2.setHeader('Python runtime loading...');
+      api2.setFooter('Pyodide');
+      api2.print('Initializing Python VM...');
+
+      ensurePyodide()
+        .then((loaded) => {
+          py = loaded;
+          py.runPython(PY_BOOTSTRAP + '\n' + source);
+          const rawUpdate = py.globals.get('update');
+          if (!rawUpdate) throw new Error('Python script must define update(dt_ms, input_state)');
+          updateFn = py.globals.get('_oc_call_update');
+
+          const initFn = py.globals.get('init');
+          if (initFn) initFn();
+
+          api2.clear();
+          api2.setHeader('Python game loaded');
+          api2.setFooter('Running same logic API as badge');
+          api2.print('Python VM ready.');
+        })
+        .catch((e: Error) => {
+          api2.clear();
+          api2.setHeader('Python load failed');
+          api2.setFooter('See error below');
+          api2.print(String(e.message || e));
+        });
+    },
+    tick(dtMs, inputState, api2) {
+      if (!py || !updateFn) return;
+      try {
+        const frame = updateFn(dtMs, JSON.stringify(inputState)) as PyGameFrame | undefined;
+
+        let out: PyGameFrame | undefined = frame;
+        if (!out || typeof out !== 'object') {
+          out = py.runPython('_oc_get_frame()') as PyGameFrame;
+        }
+
+        if (out?.header) api2.setHeader(out.header);
+        if (out?.footer) api2.setFooter(out.footer);
+        if (out?.lines) {
+          api2.clear();
+          out.lines.forEach((l) => api2.print(String(l)));
+        }
+      } catch (e) {
+        api2.clear();
+        api2.setHeader('Python runtime error');
+        api2.setFooter('Fix script and re-run');
+        api2.print(String(e));
+      }
+    },
+  };
+}
 
 function makeTiltMazeGame(): Game {
   type Cell = '#' | '.' | 'S' | 'G';
@@ -435,6 +545,53 @@ async function loadModuleFromUrl(url: string) {
     statusEl.textContent = `manifest loaded: ${manifest.name}`;
   } catch (e) {
     statusEl.textContent = `manifest error: ${(e as Error).message}`;
+  }
+});
+
+const PY_TEMPLATE = `
+# Works in browser runtime and can be adapted on-badge with same API.
+state = {"x": 2, "y": 2}
+
+def init():
+    pass
+
+def update(dt_ms, input_state):
+    if input_state.get("left"):
+        state["x"] = max(1, state["x"] - 1)
+    elif input_state.get("right"):
+        state["x"] = min(24, state["x"] + 1)
+
+    if input_state.get("up"):
+        state["y"] = max(1, state["y"] - 1)
+    elif input_state.get("down"):
+        state["y"] = min(10, state["y"] + 1)
+
+    lines = ["Python game running", "Use dpad/tilt", ""]
+    for row in range(12):
+        s = ""
+        for col in range(26):
+            s += "@" if (col == state["x"] and row == state["y"]) else "."
+        lines.append(s)
+
+    return {
+      "header": "Python Game",
+      "footer": f"dt={int(dt_ms)}ms",
+      "lines": lines,
+    }
+`;
+
+(document.getElementById('btn-run-python') as HTMLButtonElement).addEventListener('click', async () => {
+  try {
+    const file = pythonFileEl.files?.[0];
+    const source = file ? await file.text() : PY_TEMPLATE;
+    const game = makePythonGame(source);
+    registry.set(game.id, game);
+    refreshPicker();
+    pickerEl.value = game.id;
+    loadGame(game.id);
+    statusEl.textContent = file ? `python loaded: ${file.name}` : 'python template loaded';
+  } catch (e) {
+    statusEl.textContent = `python load failed: ${(e as Error).message}`;
   }
 });
 
