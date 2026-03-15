@@ -107,6 +107,7 @@ app.innerHTML = `
         <h3 class="text-sm font-semibold">Python runtime (Pyodide alpha)</h3>
         <input id="python-file" type="file" accept=".py,text/x-python" class="block w-full text-sm" />
         <button id="btn-run-python" class="btn w-full">Run Python game</button>
+        <button id="btn-load-shared-tilt" class="btn w-full">Load shared Tilt Maze Python</button>
         <p class="text-xs text-slate-400">Runs real Python in-browser. For badge parity, use the same simple API: <code>init()</code> and <code>update(dt_ms, input_state)</code>.</p>
       </div>
     </section>
@@ -580,18 +581,34 @@ def update(dt_ms, input_state):
     }
 `;
 
+async function loadPythonSource(source: string, label: string) {
+  const game = makePythonGame(source);
+  registry.set(game.id, game);
+  refreshPicker();
+  pickerEl.value = game.id;
+  loadGame(game.id);
+  statusEl.textContent = label;
+}
+
 (document.getElementById('btn-run-python') as HTMLButtonElement).addEventListener('click', async () => {
   try {
     const file = pythonFileEl.files?.[0];
     const source = file ? await file.text() : PY_TEMPLATE;
-    const game = makePythonGame(source);
-    registry.set(game.id, game);
-    refreshPicker();
-    pickerEl.value = game.id;
-    loadGame(game.id);
-    statusEl.textContent = file ? `python loaded: ${file.name}` : 'python template loaded';
+    await loadPythonSource(source, file ? `python loaded: ${file.name}` : 'python template loaded');
   } catch (e) {
     statusEl.textContent = `python load failed: ${(e as Error).message}`;
+  }
+});
+
+(document.getElementById('btn-load-shared-tilt') as HTMLButtonElement).addEventListener('click', async () => {
+  try {
+    const url = `${import.meta.env.BASE_URL}pygames/tilt_maze_game.py`;
+    const res = await fetch(url);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const source = await res.text();
+    await loadPythonSource(source, 'shared tilt maze python loaded');
+  } catch (e) {
+    statusEl.textContent = `shared python load failed: ${(e as Error).message}`;
   }
 });
 

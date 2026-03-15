@@ -4,7 +4,7 @@ Monorepo for Fri3d badge games.
 
 ## Structure
 
-- `games/tilt-maze` – playable Tilt Maze (Fri3d 2024)
+- `games/tilt-maze` – playable Tilt Maze (Fri3d 2024), including shared Python logic for browser+badge
 - `games/reaction-arena` – scaffolded (next to implement)
 - `games/pixel-studio` – scaffolded (next to implement)
 - `emulator/` – Bun + Vite + Tailwind web emulator

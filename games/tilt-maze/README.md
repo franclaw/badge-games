@@ -12,16 +12,35 @@ Playable Tilt Maze MVP for Fri3d Badge 2024.
 
 ## Files
 
-- `app/main.py`
+- `app/main.py` - classic badge-specific implementation
+- `app/main_shared.py` - runner shim for shared Python game contract
 - `app/board_fri3d_2024.py`
+- `shared/tilt_maze_game.py` - shared game logic (browser + badge)
 
 ## Install/run
+
+### Classic runner
 
 Copy files to badge and run:
 
 ```python
 import main
 main.run()
+```
+
+### Shared-code runner (same Python logic as browser)
+
+Copy these 3 files to the same badge folder:
+
+- `app/main_shared.py`
+- `app/board_fri3d_2024.py`
+- `shared/tilt_maze_game.py` (copied as `tilt_maze_game.py`)
+
+Then run:
+
+```python
+import main_shared
+main_shared.run()
 ```
 
 ## Controls
