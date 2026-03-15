@@ -131,11 +131,22 @@ Before ending session:
 
 ---
 
+## Current status (2026-03-15)
+
+- ✅ Plan + handoff docs created.
+- ✅ IDE MVP shell added in `emulator/src/main.ts` with:
+  - View switcher (Emulator / IDE)
+  - Split IDE layout (file list + editor)
+  - Monaco editor integration (CDN loader)
+  - Local file create/open/save via `localStorage`
+  - "Run in emulator" bridge for current `.py` file
+- ⏭️ Remaining: ADR, adapter extraction, dedicated REPL/console panel.
+
 ## Immediate next 3 actions
 
-1. Create `docs/micropython-ide-adr.md` with final architecture choices.
-2. Scaffold IDE route in `emulator` with split-pane layout.
-3. Integrate Monaco with open/edit/save for in-memory files.
+1. Create `docs/micropython-ide-adr.md` with final architecture choices and adapter boundaries.
+2. Refactor IDE code from `main.ts` into dedicated modules/components.
+3. Add console pane in IDE to show runtime output/errors persistently.
 
 ---
 

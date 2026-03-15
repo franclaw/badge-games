@@ -36,6 +36,13 @@ type PyGameFrame = {
   lines?: string[];
 };
 
+declare global {
+  interface Window {
+    require?: any;
+    monaco?: any;
+  }
+}
+
 const DISPLAY_W = 28;
 const DISPLAY_H = 18;
 const displayLines: string[] = [];
@@ -62,10 +69,18 @@ const motionState = {
 const app = document.querySelector<HTMLDivElement>('#app')!;
 app.innerHTML = `
 <div class="mx-auto max-w-7xl p-4 md:p-6 space-y-4">
-  <h1 class="text-2xl md:text-3xl font-bold">🎮 Badge Games Emulator</h1>
-  <p class="text-slate-300">Fri3d-like badge shell with simulated controls, display, and game loading.</p>
+  <div class="flex flex-wrap items-center justify-between gap-3">
+    <div>
+      <h1 class="text-2xl md:text-3xl font-bold">🎮 Badge Games + MicroPython IDE</h1>
+      <p class="text-slate-300">Fri3d-like badge shell with simulator + VSCode-like editing workflow.</p>
+    </div>
+    <div class="flex gap-2">
+      <button id="view-emulator" class="btn">Emulator</button>
+      <button id="view-ide" class="btn">IDE (MVP)</button>
+    </div>
+  </div>
 
-  <div class="grid gap-4 lg:grid-cols-3">
+  <div id="emulator-view" class="grid gap-4 lg:grid-cols-3">
     <section class="card lg:col-span-2">
       <div class="mb-3 flex flex-wrap items-center justify-between gap-3">
         <div class="text-sm text-slate-300">Status: <span id="emu-status" class="text-cyan-300">idle</span></div>
@@ -112,6 +127,28 @@ app.innerHTML = `
       </div>
     </section>
   </div>
+
+  <div id="ide-view" class="hidden grid gap-4 lg:grid-cols-[240px_1fr]">
+    <section class="card space-y-3">
+      <h2 class="text-lg font-semibold">Files</h2>
+      <div class="space-y-2">
+        <input id="ide-new-file" class="w-full rounded-lg border border-slate-700 bg-slate-800 px-2 py-2 text-sm" placeholder="main.py" />
+        <button id="ide-create-file" class="btn w-full">Create file</button>
+      </div>
+      <div id="ide-file-list" class="space-y-1 text-sm"></div>
+    </section>
+
+    <section class="card">
+      <div class="mb-3 flex flex-wrap items-center justify-between gap-2">
+        <div class="text-sm text-slate-300">Open file: <span id="ide-current-file" class="text-cyan-300">none</span></div>
+        <div class="flex gap-2">
+          <button id="ide-save" class="btn">Save</button>
+          <button id="ide-run" class="btn">Run in emulator</button>
+        </div>
+      </div>
+      <div id="ide-editor" class="h-[70vh] w-full rounded-xl border border-slate-700"></div>
+    </section>
+  </div>
 </div>`;
 
 const displayEl = document.getElementById('display')!;
@@ -124,6 +161,11 @@ const badgePhotoEl = document.getElementById('badge-photo') as HTMLImageElement;
 const screenOverlayEl = document.getElementById('screen-overlay') as HTMLDivElement;
 const hotspotsLayerEl = document.getElementById('hotspots-layer') as HTMLDivElement;
 const pythonFileEl = document.getElementById('python-file') as HTMLInputElement;
+const emulatorViewEl = document.getElementById('emulator-view') as HTMLDivElement;
+const ideViewEl = document.getElementById('ide-view') as HTMLDivElement;
+const ideFileListEl = document.getElementById('ide-file-list') as HTMLDivElement;
+const ideNewFileEl = document.getElementById('ide-new-file') as HTMLInputElement;
+const ideCurrentFileEl = document.getElementById('ide-current-file') as HTMLSpanElement;
 
 const api: EmulatorAPI = {
   width: DISPLAY_W,
@@ -610,6 +652,137 @@ async function loadPythonSource(source: string, label: string) {
   } catch (e) {
     statusEl.textContent = `shared python load failed: ${(e as Error).message}`;
   }
+});
+
+const IDE_STORAGE_KEY = 'badge-games-ide-files-v1';
+const DEFAULT_FILE = 'main.py';
+const defaultIdeSource = `# badge-games IDE MVP\n\nstate = {"x": 2, "y": 2}\n\ndef init():\n    pass\n\ndef update(dt_ms, input_state):\n    if input_state.get("left"):\n        state["x"] = max(0, state["x"] - 1)\n    if input_state.get("right"):\n        state["x"] = min(25, state["x"] + 1)\n\n    if input_state.get("up"):\n        state["y"] = max(0, state["y"] - 1)\n    if input_state.get("down"):\n        state["y"] = min(10, state["y"] + 1)\n\n    lines = ["MicroPython IDE MVP", "Use arrows/tilt", ""]\n    for row in range(12):\n        line = ""\n        for col in range(26):\n            line += "@" if (col == state["x"] and row == state["y"]) else "."\n        lines.append(line)\n\n    return {\n        "header": "IDE → Emulator",\n        "footer": f"dt={int(dt_ms)}ms",\n        "lines": lines,\n    }\n`;
+
+let ideFiles: Record<string, string> = {};
+let ideCurrentFile = DEFAULT_FILE;
+let ideEditor: any = null;
+
+function loadIdeFiles() {
+  try {
+    const raw = localStorage.getItem(IDE_STORAGE_KEY);
+    ideFiles = raw ? (JSON.parse(raw) as Record<string, string>) : {};
+  } catch {
+    ideFiles = {};
+  }
+  if (!Object.keys(ideFiles).length) {
+    ideFiles[DEFAULT_FILE] = defaultIdeSource;
+  }
+}
+
+function persistIdeFiles() {
+  localStorage.setItem(IDE_STORAGE_KEY, JSON.stringify(ideFiles));
+}
+
+function renderIdeFileList() {
+  ideFileListEl.innerHTML = '';
+  Object.keys(ideFiles)
+    .sort()
+    .forEach((name) => {
+      const row = document.createElement('button');
+      row.className = `w-full rounded-lg border px-2 py-1 text-left ${
+        name === ideCurrentFile ? 'border-cyan-500 bg-slate-800 text-cyan-300' : 'border-slate-700 bg-slate-900 text-slate-200'
+      }`;
+      row.textContent = name;
+      row.addEventListener('click', () => openIdeFile(name));
+      ideFileListEl.appendChild(row);
+    });
+}
+
+function openIdeFile(name: string) {
+  ideCurrentFile = name;
+  ideCurrentFileEl.textContent = name;
+  if (ideEditor) {
+    ideEditor.setValue(ideFiles[name] ?? '');
+  }
+  renderIdeFileList();
+}
+
+function saveCurrentIdeFile() {
+  if (!ideEditor || !ideCurrentFile) return;
+  ideFiles[ideCurrentFile] = ideEditor.getValue();
+  persistIdeFiles();
+  renderIdeFileList();
+  statusEl.textContent = `IDE saved: ${ideCurrentFile}`;
+}
+
+async function ensureMonacoEditor() {
+  if (window.monaco) return;
+
+  if (!window.require) {
+    await new Promise<void>((resolve, reject) => {
+      const s = document.createElement('script');
+      s.src = 'https://cdn.jsdelivr.net/npm/monaco-editor@0.52.2/min/vs/loader.js';
+      s.onload = () => resolve();
+      s.onerror = () => reject(new Error('Failed to load Monaco loader'));
+      document.head.appendChild(s);
+    });
+  }
+
+  await new Promise<void>((resolve) => {
+    window.require.config({
+      paths: {
+        vs: 'https://cdn.jsdelivr.net/npm/monaco-editor@0.52.2/min/vs',
+      },
+    });
+    window.require(['vs/editor/editor.main'], () => resolve());
+  });
+}
+
+async function initIde() {
+  loadIdeFiles();
+  renderIdeFileList();
+
+  await ensureMonacoEditor();
+
+  if (!ideEditor) {
+    ideEditor = window.monaco.editor.create(document.getElementById('ide-editor')!, {
+      value: '',
+      language: 'python',
+      theme: 'vs-dark',
+      automaticLayout: true,
+      minimap: { enabled: false },
+      fontSize: 14,
+    });
+  }
+
+  openIdeFile(ideCurrentFile in ideFiles ? ideCurrentFile : Object.keys(ideFiles)[0]);
+}
+
+function showView(view: 'emulator' | 'ide') {
+  const isIde = view === 'ide';
+  ideViewEl.classList.toggle('hidden', !isIde);
+  emulatorViewEl.classList.toggle('hidden', isIde);
+  if (isIde) initIde();
+}
+
+(document.getElementById('view-emulator') as HTMLButtonElement).addEventListener('click', () => showView('emulator'));
+(document.getElementById('view-ide') as HTMLButtonElement).addEventListener('click', () => showView('ide'));
+
+(document.getElementById('ide-create-file') as HTMLButtonElement).addEventListener('click', () => {
+  const name = ideNewFileEl.value.trim();
+  if (!name) return;
+  if (!name.endsWith('.py')) {
+    statusEl.textContent = 'IDE file must end with .py';
+    return;
+  }
+  if (!(name in ideFiles)) ideFiles[name] = '# New MicroPython file\n';
+  persistIdeFiles();
+  ideNewFileEl.value = '';
+  openIdeFile(name);
+});
+
+(document.getElementById('ide-save') as HTMLButtonElement).addEventListener('click', saveCurrentIdeFile);
+
+(document.getElementById('ide-run') as HTMLButtonElement).addEventListener('click', async () => {
+  saveCurrentIdeFile();
+  const source = ideFiles[ideCurrentFile];
+  await loadPythonSource(source, `running from IDE: ${ideCurrentFile}`);
+  showView('emulator');
 });
 
 function loop() {
