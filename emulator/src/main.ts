@@ -69,39 +69,27 @@ app.innerHTML = `
         </div>
       </div>
 
-      <div class="badge-shell badge-real">
-        <div class="badge-topline">
-          <span>FRI3D 2024</span>
-          <span>EMULATOR</span>
-        </div>
+      <div class="badge-photo-stage">
+        <img class="badge-photo" src="https://raw.githubusercontent.com/Fri3dCamp/badge_2024/main/docs/badge2024.jpg" alt="Fri3d Badge 2024" />
 
-        <div class="badge-display">
+        <div class="screen-overlay">
           <div id="display-header" class="badge-header">No game loaded</div>
           <pre id="display" class="badge-screen">Booting...</pre>
           <div id="display-footer" class="badge-footer">240x320 text display simulation</div>
         </div>
 
-        <div class="badge-controls">
-          <div class="badge-left">
-            <div class="dpad">
-              <span></span><button data-key="up">↑</button><span></span>
-              <button data-key="left">←</button><span class="pad text-center">•</span><button data-key="right">→</button>
-              <span></span><button data-key="down">↓</button><span></span>
-            </div>
-          </div>
+        <button data-key="up" class="hotspot circle" style="left:27%; top:69%;">↑</button>
+        <button data-key="down" class="hotspot circle" style="left:27%; top:86%;">↓</button>
+        <button data-key="left" class="hotspot circle" style="left:18%; top:78%;">←</button>
+        <button data-key="right" class="hotspot circle" style="left:36%; top:78%;">→</button>
 
-          <div class="badge-middle">
-            <button data-key="menu" class="pad small">MENU</button>
-            <button data-key="start" class="pad small">START</button>
-          </div>
+        <button data-key="x" class="hotspot circle" style="left:73%; top:70%;">X</button>
+        <button data-key="y" class="hotspot circle" style="left:82%; top:78%;">Y</button>
+        <button data-key="a" class="hotspot circle" style="left:64%; top:78%;">A</button>
+        <button data-key="b" class="hotspot circle" style="left:73%; top:86%;">B</button>
 
-          <div class="badge-right face-grid">
-            <button data-key="x" class="pad">X</button>
-            <button data-key="y" class="pad">Y</button>
-            <button data-key="a" class="pad">A</button>
-            <button data-key="b" class="pad">B</button>
-          </div>
-        </div>
+        <button data-key="menu" class="hotspot pill" style="left:47%; top:79%;">MENU</button>
+        <button data-key="start" class="hotspot pill" style="left:56%; top:79%;">START</button>
       </div>
     </section>
 

@@ -18,60 +18,49 @@
   @apply rounded-xl border border-slate-600 bg-slate-800 px-3 py-2 text-sm font-semibold text-slate-100 active:bg-slate-700;
 }
 
-.badge-shell {
-  @apply mx-auto w-[380px] max-w-full rounded-[28px] border-[4px] p-4 shadow-2xl;
+.badge-photo-stage {
+  @apply relative mx-auto w-[420px] max-w-full;
+  aspect-ratio: 4 / 3;
 }
 
-.badge-real {
-  border-color: #0d3552;
-  background: linear-gradient(160deg, #1d6fa0 0%, #185f8e 45%, #155176 100%);
-  box-shadow: inset 0 0 0 2px #63b3e2, 0 18px 50px rgba(0, 0, 0, 0.45);
+.badge-photo {
+  @apply h-full w-full rounded-2xl border border-slate-600 object-cover shadow-2xl;
 }
 
-.badge-topline {
-  @apply mb-2 flex items-center justify-between text-[10px] font-bold tracking-widest text-cyan-100;
-}
-
-.badge-display {
-  @apply rounded-2xl border-[6px] p-3;
-  border-color: #10395a;
-  background: #07131d;
-  box-shadow: inset 0 0 0 2px #2a617f;
+.screen-overlay {
+  @apply absolute;
+  left: 23.5%;
+  top: 21%;
+  width: 53%;
+  height: 43%;
+  border-radius: 10px;
+  border: 2px solid rgba(120, 180, 210, 0.65);
+  background: rgba(0, 0, 0, 0.55);
+  backdrop-filter: blur(1px);
+  padding: 6px;
 }
 
 .badge-header {
-  @apply mb-2 text-[11px] uppercase tracking-wide text-slate-300;
+  @apply mb-1 text-[10px] uppercase tracking-wide text-slate-300;
 }
 
 .badge-footer {
-  @apply mt-2 text-[11px] text-slate-400;
+  @apply mt-1 text-[10px] text-slate-400;
 }
 
 .badge-screen {
-  @apply h-[320px] overflow-hidden rounded-lg p-3 text-[12px] leading-[1.2] text-green-300;
-  background: radial-gradient(circle at 30% 20%, #0b1510 0%, #040705 80%);
+  @apply h-[74%] overflow-hidden rounded-md p-2 text-[11px] leading-[1.15] text-green-300;
+  background: rgba(2, 6, 4, 0.92);
 }
 
-.badge-controls {
-  @apply mt-4 grid grid-cols-3 gap-3 items-start;
+.hotspot {
+  @apply absolute -translate-x-1/2 -translate-y-1/2 border border-cyan-300/70 bg-cyan-500/20 text-[11px] font-bold text-cyan-100 backdrop-blur-sm;
 }
 
-.badge-middle {
-  @apply mt-8 flex flex-col gap-2;
+.hotspot.circle {
+  @apply h-9 w-9 rounded-full;
 }
 
-.pad.small {
-  @apply px-2 py-1 text-xs;
-}
-
-.dpad {
-  @apply grid grid-cols-3 gap-2;
-}
-
-.dpad button {
-  @apply pad h-10;
-}
-
-.face-grid {
-  @apply grid grid-cols-2 gap-2;
+.hotspot.pill {
+  @apply rounded-full px-2 py-1;
 }
