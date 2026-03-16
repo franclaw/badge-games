@@ -80,6 +80,16 @@ export function createPythonGame(
   let updateFn: any = null;
 
   const log = (line: string, level: 'info' | 'error' = 'info') => opts?.onLog?.(line, level);
+  const pyToJs = (v: any) => {
+    try {
+      if (v && typeof v.toJs === 'function') {
+        const converted = v.toJs({ dict_converter: Object.fromEntries });
+        if (typeof v.destroy === 'function') v.destroy();
+        return converted;
+      }
+    } catch (_) {}
+    return v;
+  };
 
   return {
     id: 'python-live',
@@ -119,11 +129,11 @@ export function createPythonGame(
     tick(dtMs: number, inputState: InputState, api) {
       if (!py || !updateFn) return;
       try {
-        const frame = updateFn(dtMs, JSON.stringify(inputState)) as PyGameFrame | undefined;
+        const frame = updateFn(dtMs, JSON.stringify(inputState));
 
-        let out: PyGameFrame | undefined = frame;
+        let out: PyGameFrame | undefined = pyToJs(frame);
         if (!out || typeof out !== 'object') {
-          out = py.runPython('_oc_get_frame()') as PyGameFrame;
+          out = pyToJs(py.runPython('_oc_get_frame()')) as PyGameFrame;
         }
 
         if (out?.header) api.setHeader(out.header);
