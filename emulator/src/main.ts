@@ -316,7 +316,13 @@ const keyMap: Record<string, keyof InputState> = {
   z: 'a', x: 'b', a: 'x', s: 'y', m: 'menu', Enter: 'start',
 };
 
+function isTyping() {
+  const el = document.activeElement;
+  return el instanceof HTMLTextAreaElement || el instanceof HTMLInputElement || el instanceof HTMLSelectElement;
+}
+
 document.addEventListener('keydown', (e) => {
+  if (isTyping()) return;
   const k = keyMap[e.key];
   if (k) { manual[k] = true; e.preventDefault(); }
   if (e.key === 'Escape' && currentView === 'play') {
@@ -325,6 +331,7 @@ document.addEventListener('keydown', (e) => {
 });
 
 document.addEventListener('keyup', (e) => {
+  if (isTyping()) return;
   const k = keyMap[e.key];
   if (k) manual[k] = false;
 });
