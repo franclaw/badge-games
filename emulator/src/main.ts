@@ -1,6 +1,5 @@
 import './style.css';
 import { badgeSpecs, type BadgeSpec } from './badgeSpecs';
-import { initIde } from './ide';
 import { createPythonGame, PY_TEMPLATE } from './pythonRuntime';
 import type { InputState, EmulatorAPI, Game } from './types';
 
@@ -30,15 +29,9 @@ const motionState = {
 const app = document.querySelector<HTMLDivElement>('#app')!;
 app.innerHTML = `
 <div class="mx-auto max-w-7xl p-4 md:p-6 space-y-4">
-  <div class="flex flex-wrap items-center justify-between gap-3">
-    <div>
-      <h1 class="text-2xl md:text-3xl font-bold">🎮 Badge Games + MicroPython IDE</h1>
-      <p class="text-slate-300">Fri3d-like badge shell with simulator + VSCode-like editing workflow.</p>
-    </div>
-    <div class="flex gap-2">
-      <button id="view-emulator" class="btn">Emulator</button>
-      <button id="view-ide" class="btn">IDE (MVP)</button>
-    </div>
+  <div>
+    <h1 class="text-2xl md:text-3xl font-bold">🎮 Badge Games MicroPython Simulator</h1>
+    <p class="text-slate-300">Unified flow: pick a MicroPython game, edit code inline, run instantly.</p>
   </div>
 
   <div id="emulator-view" class="grid gap-4 lg:grid-cols-3">
@@ -66,55 +59,20 @@ app.innerHTML = `
     </section>
 
     <section class="card space-y-3">
-      <h2 class="text-xl font-semibold">Load / Motion</h2>
+      <h2 class="text-xl font-semibold">Game + Code</h2>
 
       <button id="btn-motion" class="btn w-full">Enable phone tilt controls</button>
       <p id="motion-status" class="text-xs text-slate-400">Motion: inactive (keyboard + on-screen still work)</p>
 
-      <label class="text-sm">Game module URL</label>
-      <input id="module-url" class="w-full rounded-lg border border-slate-700 bg-slate-800 px-2 py-2 text-sm" placeholder="https://example.com/my-badge-game.js" />
-      <button id="btn-load-url" class="btn w-full">Load module URL</button>
-
-      <label class="text-sm">Manifest (.json)</label>
-      <input id="manifest-file" type="file" accept="application/json" class="block w-full text-sm" />
-      <p class="text-xs text-slate-400">Manifest format: {"name":"My Game","moduleUrl":"https://..."}</p>
-
-      <div class="border-t border-slate-700 pt-3 space-y-2">
-        <h3 class="text-sm font-semibold">Python runtime (Pyodide alpha)</h3>
-        <input id="python-file" type="file" accept=".py,text/x-python" class="block w-full text-sm" />
-        <button id="btn-run-python" class="btn w-full">Run Python game</button>
-        <button id="btn-load-shared-tilt" class="btn w-full">Load shared Tilt Maze Python</button>
-        <p class="text-xs text-slate-400">Runs real Python in-browser. For badge parity, use the same simple API: <code>init()</code> and <code>update(dt_ms, input_state)</code>.</p>
-      </div>
-    </section>
-  </div>
-
-  <div id="ide-view" class="hidden grid gap-4 lg:grid-cols-[240px_1fr]">
-    <section class="card space-y-3">
-      <h2 class="text-lg font-semibold">Files</h2>
-      <div class="space-y-2">
-        <input id="ide-new-file" class="w-full rounded-lg border border-slate-700 bg-slate-800 px-2 py-2 text-sm" placeholder="main.py" />
-        <button id="ide-create-file" class="btn w-full">Create file</button>
-      </div>
-      <div id="ide-file-list" class="space-y-1 text-sm"></div>
-    </section>
-
-    <section class="card space-y-3">
-      <div class="flex flex-wrap items-center justify-between gap-2">
-        <div class="text-sm text-slate-300">Open file: <span id="ide-current-file" class="text-cyan-300">none</span></div>
-        <div class="text-xs text-slate-400">Run state: <span id="ide-run-state" class="text-cyan-300">idle</span></div>
-        <div class="flex gap-2">
-          <button id="ide-save" class="btn">Save</button>
-          <button id="ide-run" class="btn">Run in emulator</button>
+      <div class="space-y-2 border-t border-slate-700 pt-3">
+        <label class="text-sm">MicroPython game</label>
+        <select id="pygame-select" class="w-full rounded-lg border border-slate-700 bg-slate-800 px-2 py-2 text-sm"></select>
+        <div class="grid grid-cols-2 gap-2">
+          <button id="btn-load-pygame" class="btn">Load into editor</button>
+          <button id="btn-run-editor" class="btn">Run editor code</button>
         </div>
-      </div>
-      <div id="ide-editor" class="h-[50vh] w-full rounded-xl border border-slate-700"></div>
-      <div>
-        <div class="mb-2 flex items-center justify-between">
-          <h3 class="text-sm font-semibold">Console</h3>
-          <button id="ide-clear-console" class="btn">Clear</button>
-        </div>
-        <pre id="ide-console" class="h-40 overflow-auto rounded-xl border border-slate-700 bg-slate-950 p-3 text-xs text-green-300"></pre>
+        <textarea id="py-editor" class="h-64 w-full rounded-lg border border-slate-700 bg-slate-900 p-2 font-mono text-xs text-slate-100" spellcheck="false"></textarea>
+        <p class="text-xs text-slate-400">Contract: define <code>init()</code> and <code>update(dt_ms, input_state)</code>.</p>
       </div>
     </section>
   </div>
@@ -129,9 +87,8 @@ const pickerEl = document.getElementById('game-picker') as HTMLSelectElement;
 const badgePhotoEl = document.getElementById('badge-photo') as HTMLImageElement;
 const screenOverlayEl = document.getElementById('screen-overlay') as HTMLDivElement;
 const hotspotsLayerEl = document.getElementById('hotspots-layer') as HTMLDivElement;
-const pythonFileEl = document.getElementById('python-file') as HTMLInputElement;
-const emulatorViewEl = document.getElementById('emulator-view') as HTMLDivElement;
-const ideViewEl = document.getElementById('ide-view') as HTMLDivElement;
+const pySelectEl = document.getElementById('pygame-select') as HTMLSelectElement;
+const pyEditorEl = document.getElementById('py-editor') as HTMLTextAreaElement;
 
 const api: EmulatorAPI = {
   width: DISPLAY_W,
@@ -423,68 +380,33 @@ function loadGame(id: string) {
 (document.getElementById('btn-load') as HTMLButtonElement).addEventListener('click', () => loadGame(pickerEl.value));
 (document.getElementById('btn-reset') as HTMLButtonElement).addEventListener('click', () => currentGame?.init(api));
 
-async function loadModuleFromUrl(url: string) {
-  const mod = await import(/* @vite-ignore */ url);
-  const game: Game = mod.createGame?.();
-  if (!game || !game.id || !game.name || !game.init || !game.tick) {
-    throw new Error('Module must export createGame() returning a valid game');
-  }
-  registry.set(game.id, game);
-  refreshPicker();
-  pickerEl.value = game.id;
-  loadGame(game.id);
-}
+const pyGames: Record<string, { name: string; path: string }> = {
+  tilt_maze_shared: { name: 'Tilt Maze (shared)', path: 'pygames/tilt_maze_game.py' },
+  python_template: { name: 'Python template', path: '' },
+};
 
-(document.getElementById('btn-load-url') as HTMLButtonElement).addEventListener('click', async () => {
-  const inputEl = document.getElementById('module-url') as HTMLInputElement;
-  const url = inputEl.value.trim();
-  if (!url) return;
-  try {
-    statusEl.textContent = 'loading module...';
-    await loadModuleFromUrl(url);
-  } catch (e) {
-    statusEl.textContent = `module load failed: ${(e as Error).message}`;
-  }
-});
-
-(document.getElementById('manifest-file') as HTMLInputElement).addEventListener('change', async (ev) => {
-  const file = (ev.target as HTMLInputElement).files?.[0];
-  if (!file) return;
-  try {
-    const manifest = JSON.parse(await file.text()) as { name: string; moduleUrl: string };
-    await loadModuleFromUrl(manifest.moduleUrl);
-    statusEl.textContent = `manifest loaded: ${manifest.name}`;
-  } catch (e) {
-    statusEl.textContent = `manifest error: ${(e as Error).message}`;
-  }
-});
-
-const ideController = initIde({
-  onSaveStatus: (text) => {
-    statusEl.textContent = text;
-  },
-  onRunRequest: async ({ fileName, source }) => {
-    await loadPythonSource(source, `running from IDE: ${fileName}`);
-    showView('emulator');
-  },
-});
-
-function showView(view: 'emulator' | 'ide') {
-  const isIde = view === 'ide';
-  ideViewEl.classList.toggle('hidden', !isIde);
-  emulatorViewEl.classList.toggle('hidden', isIde);
-  if (isIde) ideController.boot();
-}
-
-(document.getElementById('view-emulator') as HTMLButtonElement).addEventListener('click', () => showView('emulator'));
-(document.getElementById('view-ide') as HTMLButtonElement).addEventListener('click', () => showView('ide'));
-
-async function loadPythonSource(source: string, label: string) {
-  const game = createPythonGame(source, {
-    onLog: (line, level) => {
-      ideController.log(level === 'error' ? `❌ ${line}` : `ℹ️ ${line}`);
-    },
+function refreshPyGameSelect() {
+  pySelectEl.innerHTML = '';
+  Object.entries(pyGames).forEach(([id, meta]) => {
+    const o = document.createElement('option');
+    o.value = id;
+    o.textContent = meta.name;
+    pySelectEl.appendChild(o);
   });
+}
+
+async function loadPyGameSourceById(id: string) {
+  if (id === 'python_template') return PY_TEMPLATE;
+  const meta = pyGames[id];
+  if (!meta) throw new Error(`Unknown game: ${id}`);
+  const url = `${import.meta.env.BASE_URL}${meta.path}`;
+  const res = await fetch(url);
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  return await res.text();
+}
+
+async function runPythonSource(source: string, label: string) {
+  const game = createPythonGame(source);
   registry.set(game.id, game);
   refreshPicker();
   pickerEl.value = game.id;
@@ -492,25 +414,23 @@ async function loadPythonSource(source: string, label: string) {
   statusEl.textContent = label;
 }
 
-(document.getElementById('btn-run-python') as HTMLButtonElement).addEventListener('click', async () => {
+(document.getElementById('btn-load-pygame') as HTMLButtonElement).addEventListener('click', async () => {
   try {
-    const file = pythonFileEl.files?.[0];
-    const source = file ? await file.text() : PY_TEMPLATE;
-    await loadPythonSource(source, file ? `python loaded: ${file.name}` : 'python template loaded');
+    const id = pySelectEl.value;
+    const source = await loadPyGameSourceById(id);
+    pyEditorEl.value = source;
+    statusEl.textContent = `loaded into editor: ${pyGames[id]?.name || id}`;
   } catch (e) {
-    statusEl.textContent = `python load failed: ${(e as Error).message}`;
+    statusEl.textContent = `load failed: ${(e as Error).message}`;
   }
 });
 
-(document.getElementById('btn-load-shared-tilt') as HTMLButtonElement).addEventListener('click', async () => {
+(document.getElementById('btn-run-editor') as HTMLButtonElement).addEventListener('click', async () => {
   try {
-    const url = `${import.meta.env.BASE_URL}pygames/tilt_maze_game.py`;
-    const res = await fetch(url);
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    const source = await res.text();
-    await loadPythonSource(source, 'shared tilt maze python loaded');
+    const source = pyEditorEl.value.trim() ? pyEditorEl.value : PY_TEMPLATE;
+    await runPythonSource(source, 'running editor MicroPython code');
   } catch (e) {
-    statusEl.textContent = `shared python load failed: ${(e as Error).message}`;
+    statusEl.textContent = `run failed: ${(e as Error).message}`;
   }
 });
 
@@ -525,5 +445,10 @@ function loop() {
 
 applyBadgeSpec(badgeSpecs.fri3d_2024);
 refreshPicker();
+refreshPyGameSelect();
+pySelectEl.value = 'tilt_maze_shared';
+loadPyGameSourceById('tilt_maze_shared').then((src) => (pyEditorEl.value = src)).catch(() => {
+  pyEditorEl.value = PY_TEMPLATE;
+});
 loadGame('tilt-maze');
 requestAnimationFrame(loop);
