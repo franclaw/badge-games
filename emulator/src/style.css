@@ -142,10 +142,7 @@ body {
 
 .screen-overlay {
   @apply absolute;
-  left: 23.5%;
-  top: 21%;
-  width: 53%;
-  height: 43%;
+  /* positioned dynamically by applyBadgeSpec() */
   border: 0;
   background: transparent;
   padding: 0;
@@ -168,11 +165,29 @@ body {
 
 .hotspot-touch {
   @apply absolute -translate-x-1/2 -translate-y-1/2 rounded-full;
-  border: 0;
-  background: transparent;
-  opacity: 0;
+  border: 1px solid rgba(148, 163, 184, 0.2);
+  background: rgba(148, 163, 184, 0.06);
+  opacity: 1;
   touch-action: none;
   cursor: pointer;
+  transition: background 0.1s, border-color 0.1s, box-shadow 0.1s;
+}
+
+/* Larger invisible touch target via ::after */
+.hotspot-touch::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: var(--touch-w, 100%);
+  height: var(--touch-h, 100%);
+  transform: translate(-50%, -50%);
+}
+
+.hotspot-touch:hover {
+  border-color: rgba(34, 211, 238, 0.45);
+  background: rgba(34, 211, 238, 0.12);
+  box-shadow: 0 0 8px rgba(34, 211, 238, 0.2);
 }
 
 .hotspot-touch.pill {
@@ -180,8 +195,9 @@ body {
 }
 
 .hotspot-touch.pressed {
-  opacity: 0.15;
-  background: rgba(34, 211, 238, 0.6);
+  border-color: rgba(34, 211, 238, 0.6);
+  background: rgba(34, 211, 238, 0.25);
+  box-shadow: 0 0 12px rgba(34, 211, 238, 0.3);
 }
 
 /* ─── Controls hint ────────────────────────────────────── */

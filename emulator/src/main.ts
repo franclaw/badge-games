@@ -98,7 +98,6 @@ app.innerHTML = `
           <label class="dev-label">MicroPython Source</label>
           <select id="pygame-select" class="dev-select"></select>
           <div class="dev-btn-row">
-            <button id="btn-load-pygame" class="dev-btn">Load</button>
             <button id="btn-run-editor" class="dev-btn dev-btn-primary">Run</button>
           </div>
           <textarea id="py-editor" class="dev-editor" spellcheck="false"></textarea>
@@ -403,7 +402,8 @@ function applyBadgeSpec(spec: BadgeSpec) {
   hotspotsLayerEl.innerHTML = spec.controls
     .map((c) => {
       const touch = c.touchSize ?? c.visualSize;
-      return `<button aria-label="${c.label}" data-key="${c.key}" class="hotspot-touch ${c.shape}" style="left:${pxToPctX(c.x)}%; top:${pxToPctY(c.y)}%; width:${pxToPctX(touch)}%; height:${pxToPctY(touch)}%;"></button>`;
+      const vis = c.visualSize;
+      return `<button aria-label="${c.label}" title="${c.label}" data-key="${c.key}" class="hotspot-touch ${c.shape}" style="left:${pxToPctX(c.x)}%; top:${pxToPctY(c.y)}%; width:${pxToPctX(vis)}%; height:${pxToPctY(vis)}%; --touch-w:${pxToPctX(touch)}%; --touch-h:${pxToPctY(touch)}%;"></button>`;
     })
     .join('');
 
@@ -499,6 +499,7 @@ $('btn-reset').addEventListener('click', () => {
 $('btn-dev').addEventListener('click', () => {
   devPanelOpen = !devPanelOpen;
   devPanelEl.classList.toggle('hidden', !devPanelOpen);
+  if (devPanelOpen) loadSelectedSource();
 });
 
 $('btn-close-dev').addEventListener('click', () => {
@@ -508,7 +509,7 @@ $('btn-close-dev').addEventListener('click', () => {
 
 $('btn-motion').addEventListener('click', enableMotion);
 
-$('btn-load-pygame').addEventListener('click', async () => {
+async function loadSelectedSource() {
   try {
     const id = pySelectEl.value;
     const source = id === 'python_template' ? PY_TEMPLATE : await loadPyGameSourceById(id);
@@ -516,7 +517,9 @@ $('btn-load-pygame').addEventListener('click', async () => {
   } catch (e) {
     pyEditorEl.value = `# Load failed: ${(e as Error).message}`;
   }
-});
+}
+
+pySelectEl.addEventListener('change', loadSelectedSource);
 
 $('btn-run-editor').addEventListener('click', async () => {
   try {
