@@ -33,11 +33,10 @@
   top: 21%;
   width: 53%;
   height: 43%;
-  border-radius: 10px;
-  border: 2px solid rgba(120, 180, 210, 0.65);
-  background: rgba(0, 0, 0, 0.55);
-  backdrop-filter: blur(1px);
-  padding: 6px;
+  border: 0;
+  background: transparent;
+  padding: 0;
+  overflow: hidden;
 }
 
 .badge-header {
@@ -53,9 +52,11 @@
   background: rgba(2, 6, 4, 0.92);
 }
 
-#display-canvas {
+.badge-canvas {
   display: block;
-  margin: 0 auto;
+  margin: 4px auto 0;
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
 }
 
 .hotspot {

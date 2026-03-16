@@ -51,7 +51,7 @@ app.innerHTML = `
         <div id="screen-overlay" class="screen-overlay">
           <div id="display-header" class="badge-header">No game loaded</div>
           <pre id="display" class="badge-screen">Booting...</pre>
-          <canvas id="display-canvas" class="badge-screen hidden"></canvas>
+          <canvas id="display-canvas" class="badge-canvas hidden"></canvas>
           <div id="display-footer" class="badge-footer">240x320 text display simulation</div>
         </div>
 
@@ -105,14 +105,18 @@ function showCanvasScreen() {
 }
 
 function renderPixelFrame(frame: PixelOpsFrame) {
-  const maxW = Math.max(120, Math.floor(screenOverlayEl.clientWidth - 16));
-  const maxH = Math.max(80, Math.floor(screenOverlayEl.clientHeight * 0.74));
+  const headerH = headerEl.clientHeight || 14;
+  const footerH = footerEl.clientHeight || 14;
+  const verticalPadding = 8;
+
+  const maxW = Math.max(80, Math.floor(screenOverlayEl.clientWidth));
+  const maxH = Math.max(48, Math.floor(screenOverlayEl.clientHeight - headerH - footerH - verticalPadding));
   const fitScale = Math.max(1, Math.floor(Math.min(maxW / frame.width, maxH / frame.height)));
 
   canvasEl.width = frame.width;
   canvasEl.height = frame.height;
-  canvasEl.style.width = `${frame.width * fitScale}px`;
-  canvasEl.style.height = `${frame.height * fitScale}px`;
+  canvasEl.style.width = `${Math.floor(frame.width * fitScale)}px`;
+  canvasEl.style.height = `${Math.floor(frame.height * fitScale)}px`;
 
   const ctx = canvasEl.getContext('2d');
   if (!ctx) return;
