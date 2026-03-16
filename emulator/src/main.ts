@@ -67,6 +67,25 @@ app.innerHTML = `
 
       <button id="btn-motion" class="btn w-full">Enable phone tilt controls</button>
       <p id="motion-status" class="text-xs text-slate-400">Motion: inactive (keyboard + on-screen still work)</p>
+      <button id="btn-calibrate" class="btn w-full">Open badge calibrator</button>
+
+      <div id="calibrator" class="hidden space-y-2 rounded-lg border border-slate-700 bg-slate-950 p-2">
+        <p class="text-xs text-slate-300">Calibrate current badge spec (pixel-space)</p>
+        <div class="grid grid-cols-4 gap-1 text-xs">
+          <label class="col-span-1">sx<input id="cal-sx" type="number" class="w-full rounded border border-slate-700 bg-slate-900 px-1 py-1" /></label>
+          <label class="col-span-1">sy<input id="cal-sy" type="number" class="w-full rounded border border-slate-700 bg-slate-900 px-1 py-1" /></label>
+          <label class="col-span-1">sw<input id="cal-sw" type="number" class="w-full rounded border border-slate-700 bg-slate-900 px-1 py-1" /></label>
+          <label class="col-span-1">sh<input id="cal-sh" type="number" class="w-full rounded border border-slate-700 bg-slate-900 px-1 py-1" /></label>
+        </div>
+        <div class="grid grid-cols-5 gap-1 text-xs">
+          <select id="cal-key" class="col-span-2 rounded border border-slate-700 bg-slate-900 px-1 py-1"></select>
+          <label>cx<input id="cal-cx" type="number" class="w-full rounded border border-slate-700 bg-slate-900 px-1 py-1" /></label>
+          <label>cy<input id="cal-cy" type="number" class="w-full rounded border border-slate-700 bg-slate-900 px-1 py-1" /></label>
+          <label>ts<input id="cal-ts" type="number" class="w-full rounded border border-slate-700 bg-slate-900 px-1 py-1" /></label>
+        </div>
+        <button id="btn-export-spec" class="btn w-full">Export current spec JSON</button>
+        <textarea id="cal-output" class="h-28 w-full rounded border border-slate-700 bg-slate-900 p-1 font-mono text-[11px]"></textarea>
+      </div>
 
       <div class="space-y-2 border-t border-slate-700 pt-3">
         <label class="text-sm">MicroPython game</label>
@@ -94,8 +113,21 @@ const screenOverlayEl = document.getElementById('screen-overlay') as HTMLDivElem
 const hotspotsLayerEl = document.getElementById('hotspots-layer') as HTMLDivElement;
 const pySelectEl = document.getElementById('pygame-select') as HTMLSelectElement;
 const pyEditorEl = document.getElementById('py-editor') as HTMLTextAreaElement;
+const calibratorEl = document.getElementById('calibrator') as HTMLDivElement;
+const calibrateBtnEl = document.getElementById('btn-calibrate') as HTMLButtonElement;
+const calOutEl = document.getElementById('cal-output') as HTMLTextAreaElement;
+const calKeyEl = document.getElementById('cal-key') as HTMLSelectElement;
+const calSxEl = document.getElementById('cal-sx') as HTMLInputElement;
+const calSyEl = document.getElementById('cal-sy') as HTMLInputElement;
+const calSwEl = document.getElementById('cal-sw') as HTMLInputElement;
+const calShEl = document.getElementById('cal-sh') as HTMLInputElement;
+const calCxEl = document.getElementById('cal-cx') as HTMLInputElement;
+const calCyEl = document.getElementById('cal-cy') as HTMLInputElement;
+const calTsEl = document.getElementById('cal-ts') as HTMLInputElement;
 
 let activePixelFrame: PixelOpsFrame | null = null;
+let activeBadgeSpec: BadgeSpec = JSON.parse(JSON.stringify(badgeSpecs.fri3d_2024));
+let calibratorOpen = false;
 
 function showTextScreen() {
   displayEl.classList.remove('hidden');
@@ -231,6 +263,65 @@ function applyBadgeSpec(spec: BadgeSpec) {
     .join('');
 
   bindHotspotInputs();
+}
+
+function refreshCalibratorUi() {
+  calSxEl.value = String(Math.round(activeBadgeSpec.screen.x));
+  calSyEl.value = String(Math.round(activeBadgeSpec.screen.y));
+  calSwEl.value = String(Math.round(activeBadgeSpec.screen.width));
+  calShEl.value = String(Math.round(activeBadgeSpec.screen.height));
+
+  if (!calKeyEl.options.length) {
+    activeBadgeSpec.controls.forEach((c) => {
+      const o = document.createElement('option');
+      o.value = c.key;
+      o.textContent = c.key;
+      calKeyEl.appendChild(o);
+    });
+  }
+
+  const selected = activeBadgeSpec.controls.find((c) => c.key === calKeyEl.value) ?? activeBadgeSpec.controls[0];
+  if (selected) {
+    calKeyEl.value = selected.key;
+    calCxEl.value = String(Math.round(selected.x));
+    calCyEl.value = String(Math.round(selected.y));
+    calTsEl.value = String(Math.round(selected.touchSize ?? selected.visualSize));
+  }
+}
+
+function applyCalibratorValues() {
+  activeBadgeSpec.screen.x = Number(calSxEl.value) || activeBadgeSpec.screen.x;
+  activeBadgeSpec.screen.y = Number(calSyEl.value) || activeBadgeSpec.screen.y;
+  activeBadgeSpec.screen.width = Number(calSwEl.value) || activeBadgeSpec.screen.width;
+  activeBadgeSpec.screen.height = Number(calShEl.value) || activeBadgeSpec.screen.height;
+
+  const selected = activeBadgeSpec.controls.find((c) => c.key === calKeyEl.value);
+  if (selected) {
+    selected.x = Number(calCxEl.value) || selected.x;
+    selected.y = Number(calCyEl.value) || selected.y;
+    selected.touchSize = Number(calTsEl.value) || selected.touchSize;
+  }
+
+  applyBadgeSpec(activeBadgeSpec);
+}
+
+function bindCalibrator() {
+  calibrateBtnEl.addEventListener('click', () => {
+    calibratorOpen = !calibratorOpen;
+    calibratorEl.classList.toggle('hidden', !calibratorOpen);
+    calibrateBtnEl.textContent = calibratorOpen ? 'Close badge calibrator' : 'Open badge calibrator';
+    refreshCalibratorUi();
+  });
+
+  [calSxEl, calSyEl, calSwEl, calShEl, calCxEl, calCyEl, calTsEl].forEach((el) => {
+    el.addEventListener('input', applyCalibratorValues);
+  });
+
+  calKeyEl.addEventListener('change', refreshCalibratorUi);
+
+  (document.getElementById('btn-export-spec') as HTMLButtonElement).addEventListener('click', () => {
+    calOutEl.value = JSON.stringify(activeBadgeSpec, null, 2);
+  });
 }
 
 function motionToInput(): Partial<InputState> {
@@ -513,7 +604,9 @@ function loop() {
   requestAnimationFrame(loop);
 }
 
-applyBadgeSpec(badgeSpecs.fri3d_2024);
+applyBadgeSpec(activeBadgeSpec);
+bindCalibrator();
+refreshCalibratorUi();
 refreshPicker();
 refreshPyGameSelect();
 pySelectEl.value = 'tilt_maze_shared';
