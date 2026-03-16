@@ -53,6 +53,11 @@
   background: rgba(2, 6, 4, 0.92);
 }
 
+#display-canvas {
+  display: block;
+  margin: 0 auto;
+}
+
 .hotspot {
   @apply absolute -translate-x-1/2 -translate-y-1/2 border border-cyan-300/70 bg-cyan-500/20 text-[11px] font-bold text-cyan-100 backdrop-blur-sm;
 }

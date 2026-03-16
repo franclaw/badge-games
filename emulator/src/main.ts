@@ -105,11 +105,14 @@ function showCanvasScreen() {
 }
 
 function renderPixelFrame(frame: PixelOpsFrame) {
-  const scale = 3;
+  const maxW = Math.max(120, Math.floor(screenOverlayEl.clientWidth - 16));
+  const maxH = Math.max(80, Math.floor(screenOverlayEl.clientHeight * 0.74));
+  const fitScale = Math.max(1, Math.floor(Math.min(maxW / frame.width, maxH / frame.height)));
+
   canvasEl.width = frame.width;
   canvasEl.height = frame.height;
-  canvasEl.style.width = `${frame.width * scale}px`;
-  canvasEl.style.height = `${frame.height * scale}px`;
+  canvasEl.style.width = `${frame.width * fitScale}px`;
+  canvasEl.style.height = `${frame.height * fitScale}px`;
 
   const ctx = canvasEl.getContext('2d');
   if (!ctx) return;
