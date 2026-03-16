@@ -45,14 +45,17 @@ app.innerHTML = `
         </div>
       </div>
 
+      <div class="sim-hud">
+        <div id="display-header" class="sim-title">No game loaded</div>
+        <div id="display-footer" class="sim-subtitle">240x320 text display simulation</div>
+      </div>
+
       <div id="badge-stage" class="badge-photo-stage">
         <img id="badge-photo" class="badge-photo" src="" alt="Badge skin" />
 
         <div id="screen-overlay" class="screen-overlay">
-          <div id="display-header" class="badge-header">No game loaded</div>
           <pre id="display" class="badge-screen">Booting...</pre>
           <canvas id="display-canvas" class="badge-canvas hidden"></canvas>
-          <div id="display-footer" class="badge-footer">240x320 text display simulation</div>
         </div>
 
         <div id="hotspots-layer"></div>
@@ -105,12 +108,8 @@ function showCanvasScreen() {
 }
 
 function renderPixelFrame(frame: PixelOpsFrame) {
-  const headerH = headerEl.clientHeight || 14;
-  const footerH = footerEl.clientHeight || 14;
-  const verticalPadding = 8;
-
   const maxW = Math.max(80, Math.floor(screenOverlayEl.clientWidth));
-  const maxH = Math.max(48, Math.floor(screenOverlayEl.clientHeight - headerH - footerH - verticalPadding));
+  const maxH = Math.max(48, Math.floor(screenOverlayEl.clientHeight));
   const fitScale = Math.max(1, Math.floor(Math.min(maxW / frame.width, maxH / frame.height)));
 
   canvasEl.width = frame.width;
@@ -190,13 +189,25 @@ document.addEventListener('keyup', (e) => {
 function bindHotspotInputs() {
   document.querySelectorAll<HTMLButtonElement>('[data-key]').forEach((btn) => {
     const k = btn.dataset.key as keyof InputState;
-    const on = () => (manual[k] = true);
-    const off = () => (manual[k] = false);
+    const on = () => {
+      manual[k] = true;
+      btn.classList.add('pressed');
+    };
+    const off = () => {
+      manual[k] = false;
+      btn.classList.remove('pressed');
+    };
     btn.onmousedown = on;
     btn.onmouseup = off;
     btn.onmouseleave = off;
-    btn.ontouchstart = () => on();
-    btn.ontouchend = () => off();
+    btn.ontouchstart = (e) => {
+      e.preventDefault();
+      on();
+    };
+    btn.ontouchend = (e) => {
+      e.preventDefault();
+      off();
+    };
   });
 }
 
@@ -204,16 +215,19 @@ function applyBadgeSpec(spec: BadgeSpec) {
   badgePhotoEl.src = spec.imageUrl;
   badgePhotoEl.alt = spec.name;
 
-  screenOverlayEl.style.left = `${spec.screen.leftPct}%`;
-  screenOverlayEl.style.top = `${spec.screen.topPct}%`;
-  screenOverlayEl.style.width = `${spec.screen.widthPct}%`;
-  screenOverlayEl.style.height = `${spec.screen.heightPct}%`;
+  const pxToPctX = (x: number) => (x / spec.baseWidth) * 100;
+  const pxToPctY = (y: number) => (y / spec.baseHeight) * 100;
+
+  screenOverlayEl.style.left = `${pxToPctX(spec.screen.x)}%`;
+  screenOverlayEl.style.top = `${pxToPctY(spec.screen.y)}%`;
+  screenOverlayEl.style.width = `${pxToPctX(spec.screen.width)}%`;
+  screenOverlayEl.style.height = `${pxToPctY(spec.screen.height)}%`;
 
   hotspotsLayerEl.innerHTML = spec.controls
-    .map(
-      (c) =>
-        `<button data-key="${c.key}" class="hotspot ${c.shape}" style="left:${c.leftPct}%; top:${c.topPct}%;">${c.label}</button>`,
-    )
+    .map((c) => {
+      const touch = c.touchSize ?? c.visualSize;
+      return `<button aria-label="${c.label}" data-key="${c.key}" class="hotspot-touch ${c.shape}" style="left:${pxToPctX(c.x)}%; top:${pxToPctY(c.y)}%; width:${pxToPctX(touch)}%; height:${pxToPctY(touch)}%;"></button>`;
+    })
     .join('');
 
   bindHotspotInputs();

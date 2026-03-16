@@ -27,6 +27,18 @@
   @apply h-full w-full rounded-2xl border border-slate-600 object-cover shadow-2xl;
 }
 
+.sim-hud {
+  @apply mb-2 text-center;
+}
+
+.sim-title {
+  @apply text-sm font-semibold text-slate-100;
+}
+
+.sim-subtitle {
+  @apply text-xs text-slate-400;
+}
+
 .screen-overlay {
   @apply absolute;
   left: 23.5%;
@@ -39,34 +51,32 @@
   overflow: hidden;
 }
 
-.badge-header {
-  @apply mb-1 text-[10px] uppercase tracking-wide text-slate-300;
-}
-
-.badge-footer {
-  @apply mt-1 text-[10px] text-slate-400;
-}
-
 .badge-screen {
-  @apply h-[74%] overflow-hidden rounded-md p-2 text-[11px] leading-[1.15] text-green-300;
-  background: rgba(2, 6, 4, 0.92);
+  @apply h-full w-full overflow-hidden p-2 text-[11px] leading-[1.15] text-green-300;
+  margin: 0;
+  background: rgba(2, 6, 4, 0.96);
 }
 
 .badge-canvas {
   display: block;
-  margin: 4px auto 0;
+  margin: 0 auto;
   image-rendering: pixelated;
   image-rendering: crisp-edges;
 }
 
-.hotspot {
-  @apply absolute -translate-x-1/2 -translate-y-1/2 border border-cyan-300/70 bg-cyan-500/20 text-[11px] font-bold text-cyan-100 backdrop-blur-sm;
+.hotspot-touch {
+  @apply absolute -translate-x-1/2 -translate-y-1/2 rounded-full;
+  border: 0;
+  background: transparent;
+  opacity: 0;
+  touch-action: none;
 }
 
-.hotspot.circle {
-  @apply h-9 w-9 rounded-full;
+.hotspot-touch.pill {
+  border-radius: 999px;
 }
 
-.hotspot.pill {
-  @apply rounded-full px-2 py-1;
+.hotspot-touch.pressed {
+  opacity: 0.12;
+  background: rgba(34, 211, 238, 0.55);
 }
