@@ -1,47 +1,8 @@
 import './style.css';
 import { badgeSpecs, type BadgeSpec } from './badgeSpecs';
-
-type InputState = {
-  up: boolean;
-  down: boolean;
-  left: boolean;
-  right: boolean;
-  a: boolean;
-  b: boolean;
-  x: boolean;
-  y: boolean;
-  menu: boolean;
-  start: boolean;
-};
-
-type EmulatorAPI = {
-  width: number;
-  height: number;
-  clear: () => void;
-  print: (line: string) => void;
-  setHeader: (text: string) => void;
-  setFooter: (text: string) => void;
-};
-
-type Game = {
-  id: string;
-  name: string;
-  init: (api: EmulatorAPI) => void;
-  tick: (dtMs: number, input: InputState, api: EmulatorAPI) => void;
-};
-
-type PyGameFrame = {
-  header?: string;
-  footer?: string;
-  lines?: string[];
-};
-
-declare global {
-  interface Window {
-    require?: any;
-    monaco?: any;
-  }
-}
+import { initIde } from './ide';
+import { createPythonGame, PY_TEMPLATE } from './pythonRuntime';
+import type { InputState, EmulatorAPI, Game } from './types';
 
 const DISPLAY_W = 28;
 const DISPLAY_H = 18;
@@ -138,15 +99,23 @@ app.innerHTML = `
       <div id="ide-file-list" class="space-y-1 text-sm"></div>
     </section>
 
-    <section class="card">
-      <div class="mb-3 flex flex-wrap items-center justify-between gap-2">
+    <section class="card space-y-3">
+      <div class="flex flex-wrap items-center justify-between gap-2">
         <div class="text-sm text-slate-300">Open file: <span id="ide-current-file" class="text-cyan-300">none</span></div>
+        <div class="text-xs text-slate-400">Run state: <span id="ide-run-state" class="text-cyan-300">idle</span></div>
         <div class="flex gap-2">
           <button id="ide-save" class="btn">Save</button>
           <button id="ide-run" class="btn">Run in emulator</button>
         </div>
       </div>
-      <div id="ide-editor" class="h-[70vh] w-full rounded-xl border border-slate-700"></div>
+      <div id="ide-editor" class="h-[50vh] w-full rounded-xl border border-slate-700"></div>
+      <div>
+        <div class="mb-2 flex items-center justify-between">
+          <h3 class="text-sm font-semibold">Console</h3>
+          <button id="ide-clear-console" class="btn">Clear</button>
+        </div>
+        <pre id="ide-console" class="h-40 overflow-auto rounded-xl border border-slate-700 bg-slate-950 p-3 text-xs text-green-300"></pre>
+      </div>
     </section>
   </div>
 </div>`;
@@ -163,9 +132,6 @@ const hotspotsLayerEl = document.getElementById('hotspots-layer') as HTMLDivElem
 const pythonFileEl = document.getElementById('python-file') as HTMLInputElement;
 const emulatorViewEl = document.getElementById('emulator-view') as HTMLDivElement;
 const ideViewEl = document.getElementById('ide-view') as HTMLDivElement;
-const ideFileListEl = document.getElementById('ide-file-list') as HTMLDivElement;
-const ideNewFileEl = document.getElementById('ide-new-file') as HTMLInputElement;
-const ideCurrentFileEl = document.getElementById('ide-current-file') as HTMLSpanElement;
 
 const api: EmulatorAPI = {
   width: DISPLAY_W,
@@ -343,6 +309,17 @@ function makePythonGame(source: string): Game {
   let py: any = null;
   let updateFn: any = null;
 
+  const pyToJs = (v: any) => {
+    try {
+      if (v && typeof v.toJs === 'function') {
+        const converted = v.toJs({ dict_converter: Object.fromEntries });
+        if (typeof v.destroy === 'function') v.destroy();
+        return converted;
+      }
+    } catch (_) {}
+    return v;
+  };
+
   return {
     id: 'python-live',
     name: 'Python Game (live)',
@@ -378,11 +355,11 @@ function makePythonGame(source: string): Game {
     tick(dtMs, inputState, api2) {
       if (!py || !updateFn) return;
       try {
-        const frame = updateFn(dtMs, JSON.stringify(inputState)) as PyGameFrame | undefined;
+        const frame = updateFn(dtMs, JSON.stringify(inputState));
 
-        let out: PyGameFrame | undefined = frame;
+        let out: PyGameFrame | undefined = pyToJs(frame);
         if (!out || typeof out !== 'object') {
-          out = py.runPython('_oc_get_frame()') as PyGameFrame;
+          out = pyToJs(py.runPython('_oc_get_frame()')) as PyGameFrame;
         }
 
         if (out?.header) api2.setHeader(out.header);
