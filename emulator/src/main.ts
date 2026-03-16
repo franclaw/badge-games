@@ -267,116 +267,7 @@ async function enableMotion() {
 
 (document.getElementById('btn-motion') as HTMLButtonElement).addEventListener('click', enableMotion);
 
-const PY_BOOTSTRAP = `
-import json
-_last_frame = {"header": "Python runtime", "footer": "", "lines": ["Ready"]}
-
-def _oc_set_frame(frame):
-    global _last_frame
-    _last_frame = frame
-
-def _oc_get_frame():
-    return _last_frame
-
-def _oc_call_update(dt_ms, input_json):
-    state = json.loads(input_json)
-    return update(dt_ms, state)
-`;
-
-async function ensurePyodide() {
-  const w = window as any;
-  if (w.__pyodideReady) return w.__pyodideReady;
-
-  w.__pyodideReady = (async () => {
-    if (!w.loadPyodide) {
-      await new Promise<void>((resolve, reject) => {
-        const s = document.createElement('script');
-        s.src = 'https://cdn.jsdelivr.net/pyodide/v0.27.2/full/pyodide.js';
-        s.onload = () => resolve();
-        s.onerror = () => reject(new Error('Failed to load pyodide.js'));
-        document.head.appendChild(s);
-      });
-    }
-    const py = await w.loadPyodide();
-    py.runPython(PY_BOOTSTRAP);
-    return py;
-  })();
-
-  return w.__pyodideReady;
-}
-
-function makePythonGame(source: string): Game {
-  let py: any = null;
-  let updateFn: any = null;
-
-  const pyToJs = (v: any) => {
-    try {
-      if (v && typeof v.toJs === 'function') {
-        const converted = v.toJs({ dict_converter: Object.fromEntries });
-        if (typeof v.destroy === 'function') v.destroy();
-        return converted;
-      }
-    } catch (_) {}
-    return v;
-  };
-
-  return {
-    id: 'python-live',
-    name: 'Python Game (live)',
-    init(api2) {
-      api2.clear();
-      api2.setHeader('Python runtime loading...');
-      api2.setFooter('Pyodide');
-      api2.print('Initializing Python VM...');
-
-      ensurePyodide()
-        .then((loaded) => {
-          py = loaded;
-          py.runPython(PY_BOOTSTRAP + '\n' + source);
-          const rawUpdate = py.globals.get('update');
-          if (!rawUpdate) throw new Error('Python script must define update(dt_ms, input_state)');
-          updateFn = py.globals.get('_oc_call_update');
-
-          const initFn = py.globals.get('init');
-          if (initFn) initFn();
-
-          api2.clear();
-          api2.setHeader('Python game loaded');
-          api2.setFooter('Running same logic API as badge');
-          api2.print('Python VM ready.');
-        })
-        .catch((e: Error) => {
-          api2.clear();
-          api2.setHeader('Python load failed');
-          api2.setFooter('See error below');
-          api2.print(String(e.message || e));
-        });
-    },
-    tick(dtMs, inputState, api2) {
-      if (!py || !updateFn) return;
-      try {
-        const frame = updateFn(dtMs, JSON.stringify(inputState));
-
-        let out: PyGameFrame | undefined = pyToJs(frame);
-        if (!out || typeof out !== 'object') {
-          out = pyToJs(py.runPython('_oc_get_frame()')) as PyGameFrame;
-        }
-
-        if (out?.header) api2.setHeader(out.header);
-        if (out?.footer) api2.setFooter(out.footer);
-        if (out?.lines) {
-          api2.clear();
-          out.lines.forEach((l) => api2.print(String(l)));
-        }
-      } catch (e) {
-        api2.clear();
-        api2.setHeader('Python runtime error');
-        api2.setFooter('Fix script and re-run');
-        api2.print(String(e));
-      }
-    },
-  };
-}
+// Python runtime moved to pythonRuntime.ts
 
 function makeTiltMazeGame(): Game {
   type Cell = '#' | '.' | 'S' | 'G';
@@ -568,40 +459,32 @@ async function loadModuleFromUrl(url: string) {
   }
 });
 
-const PY_TEMPLATE = `
-# Works in browser runtime and can be adapted on-badge with same API.
-state = {"x": 2, "y": 2}
+const ideController = initIde({
+  onSaveStatus: (text) => {
+    statusEl.textContent = text;
+  },
+  onRunRequest: async ({ fileName, source }) => {
+    await loadPythonSource(source, `running from IDE: ${fileName}`);
+    showView('emulator');
+  },
+});
 
-def init():
-    pass
+function showView(view: 'emulator' | 'ide') {
+  const isIde = view === 'ide';
+  ideViewEl.classList.toggle('hidden', !isIde);
+  emulatorViewEl.classList.toggle('hidden', isIde);
+  if (isIde) ideController.boot();
+}
 
-def update(dt_ms, input_state):
-    if input_state.get("left"):
-        state["x"] = max(1, state["x"] - 1)
-    elif input_state.get("right"):
-        state["x"] = min(24, state["x"] + 1)
-
-    if input_state.get("up"):
-        state["y"] = max(1, state["y"] - 1)
-    elif input_state.get("down"):
-        state["y"] = min(10, state["y"] + 1)
-
-    lines = ["Python game running", "Use dpad/tilt", ""]
-    for row in range(12):
-        s = ""
-        for col in range(26):
-            s += "@" if (col == state["x"] and row == state["y"]) else "."
-        lines.append(s)
-
-    return {
-      "header": "Python Game",
-      "footer": f"dt={int(dt_ms)}ms",
-      "lines": lines,
-    }
-`;
+(document.getElementById('view-emulator') as HTMLButtonElement).addEventListener('click', () => showView('emulator'));
+(document.getElementById('view-ide') as HTMLButtonElement).addEventListener('click', () => showView('ide'));
 
 async function loadPythonSource(source: string, label: string) {
-  const game = makePythonGame(source);
+  const game = createPythonGame(source, {
+    onLog: (line, level) => {
+      ideController.log(level === 'error' ? `❌ ${line}` : `ℹ️ ${line}`);
+    },
+  });
   registry.set(game.id, game);
   refreshPicker();
   pickerEl.value = game.id;
@@ -629,137 +512,6 @@ async function loadPythonSource(source: string, label: string) {
   } catch (e) {
     statusEl.textContent = `shared python load failed: ${(e as Error).message}`;
   }
-});
-
-const IDE_STORAGE_KEY = 'badge-games-ide-files-v1';
-const DEFAULT_FILE = 'main.py';
-const defaultIdeSource = `# badge-games IDE MVP\n\nstate = {"x": 2, "y": 2}\n\ndef init():\n    pass\n\ndef update(dt_ms, input_state):\n    if input_state.get("left"):\n        state["x"] = max(0, state["x"] - 1)\n    if input_state.get("right"):\n        state["x"] = min(25, state["x"] + 1)\n\n    if input_state.get("up"):\n        state["y"] = max(0, state["y"] - 1)\n    if input_state.get("down"):\n        state["y"] = min(10, state["y"] + 1)\n\n    lines = ["MicroPython IDE MVP", "Use arrows/tilt", ""]\n    for row in range(12):\n        line = ""\n        for col in range(26):\n            line += "@" if (col == state["x"] and row == state["y"]) else "."\n        lines.append(line)\n\n    return {\n        "header": "IDE → Emulator",\n        "footer": f"dt={int(dt_ms)}ms",\n        "lines": lines,\n    }\n`;
-
-let ideFiles: Record<string, string> = {};
-let ideCurrentFile = DEFAULT_FILE;
-let ideEditor: any = null;
-
-function loadIdeFiles() {
-  try {
-    const raw = localStorage.getItem(IDE_STORAGE_KEY);
-    ideFiles = raw ? (JSON.parse(raw) as Record<string, string>) : {};
-  } catch {
-    ideFiles = {};
-  }
-  if (!Object.keys(ideFiles).length) {
-    ideFiles[DEFAULT_FILE] = defaultIdeSource;
-  }
-}
-
-function persistIdeFiles() {
-  localStorage.setItem(IDE_STORAGE_KEY, JSON.stringify(ideFiles));
-}
-
-function renderIdeFileList() {
-  ideFileListEl.innerHTML = '';
-  Object.keys(ideFiles)
-    .sort()
-    .forEach((name) => {
-      const row = document.createElement('button');
-      row.className = `w-full rounded-lg border px-2 py-1 text-left ${
-        name === ideCurrentFile ? 'border-cyan-500 bg-slate-800 text-cyan-300' : 'border-slate-700 bg-slate-900 text-slate-200'
-      }`;
-      row.textContent = name;
-      row.addEventListener('click', () => openIdeFile(name));
-      ideFileListEl.appendChild(row);
-    });
-}
-
-function openIdeFile(name: string) {
-  ideCurrentFile = name;
-  ideCurrentFileEl.textContent = name;
-  if (ideEditor) {
-    ideEditor.setValue(ideFiles[name] ?? '');
-  }
-  renderIdeFileList();
-}
-
-function saveCurrentIdeFile() {
-  if (!ideEditor || !ideCurrentFile) return;
-  ideFiles[ideCurrentFile] = ideEditor.getValue();
-  persistIdeFiles();
-  renderIdeFileList();
-  statusEl.textContent = `IDE saved: ${ideCurrentFile}`;
-}
-
-async function ensureMonacoEditor() {
-  if (window.monaco) return;
-
-  if (!window.require) {
-    await new Promise<void>((resolve, reject) => {
-      const s = document.createElement('script');
-      s.src = 'https://cdn.jsdelivr.net/npm/monaco-editor@0.52.2/min/vs/loader.js';
-      s.onload = () => resolve();
-      s.onerror = () => reject(new Error('Failed to load Monaco loader'));
-      document.head.appendChild(s);
-    });
-  }
-
-  await new Promise<void>((resolve) => {
-    window.require.config({
-      paths: {
-        vs: 'https://cdn.jsdelivr.net/npm/monaco-editor@0.52.2/min/vs',
-      },
-    });
-    window.require(['vs/editor/editor.main'], () => resolve());
-  });
-}
-
-async function initIde() {
-  loadIdeFiles();
-  renderIdeFileList();
-
-  await ensureMonacoEditor();
-
-  if (!ideEditor) {
-    ideEditor = window.monaco.editor.create(document.getElementById('ide-editor')!, {
-      value: '',
-      language: 'python',
-      theme: 'vs-dark',
-      automaticLayout: true,
-      minimap: { enabled: false },
-      fontSize: 14,
-    });
-  }
-
-  openIdeFile(ideCurrentFile in ideFiles ? ideCurrentFile : Object.keys(ideFiles)[0]);
-}
-
-function showView(view: 'emulator' | 'ide') {
-  const isIde = view === 'ide';
-  ideViewEl.classList.toggle('hidden', !isIde);
-  emulatorViewEl.classList.toggle('hidden', isIde);
-  if (isIde) initIde();
-}
-
-(document.getElementById('view-emulator') as HTMLButtonElement).addEventListener('click', () => showView('emulator'));
-(document.getElementById('view-ide') as HTMLButtonElement).addEventListener('click', () => showView('ide'));
-
-(document.getElementById('ide-create-file') as HTMLButtonElement).addEventListener('click', () => {
-  const name = ideNewFileEl.value.trim();
-  if (!name) return;
-  if (!name.endsWith('.py')) {
-    statusEl.textContent = 'IDE file must end with .py';
-    return;
-  }
-  if (!(name in ideFiles)) ideFiles[name] = '# New MicroPython file\n';
-  persistIdeFiles();
-  ideNewFileEl.value = '';
-  openIdeFile(name);
-});
-
-(document.getElementById('ide-save') as HTMLButtonElement).addEventListener('click', saveCurrentIdeFile);
-
-(document.getElementById('ide-run') as HTMLButtonElement).addEventListener('click', async () => {
-  saveCurrentIdeFile();
-  const source = ideFiles[ideCurrentFile];
-  await loadPythonSource(source, `running from IDE: ${ideCurrentFile}`);
-  showView('emulator');
 });
 
 function loop() {

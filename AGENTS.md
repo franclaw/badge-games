@@ -140,7 +140,12 @@ Before ending session:
   - Monaco editor integration (CDN loader)
   - Local file create/open/save via `localStorage`
   - "Run in emulator" bridge for current `.py` file
-- ⏭️ Remaining: ADR, adapter extraction, dedicated REPL/console panel.
+- ✅ Refactor pass:
+  - `emulator/src/ide.ts` (IDE file management/editor/console wiring)
+  - `emulator/src/pythonRuntime.ts` (Pyodide runtime + Python game wrapper)
+  - `emulator/src/types.ts` (shared emulator/game types)
+- ✅ IDE console pane added with run-state + clear action.
+- ⏭️ Remaining: ADR, adapter boundaries, richer REPL stdout/stderr streaming.
 
 ## Immediate next 3 actions
 
