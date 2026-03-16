@@ -44,25 +44,25 @@ export const badgeSpecs: Record<string, BadgeSpec> = {
     baseWidth: 400,
     baseHeight: 300,
     screen: {
-      x: 148,
-      y: 48,
-      width: 106,
-      height: 82,
+      x: 157,
+      y: 55,
+      width: 90,
+      height: 68,
     },
     controls: [
-      // D-pad (left ear) — center at (80, 90), spacing 13
-      { key: 'up',    label: '\u2191', shape: 'circle', x: 80,  y: 77,  visualSize: 18, touchSize: 30 },
-      { key: 'down',  label: '\u2193', shape: 'circle', x: 80,  y: 103, visualSize: 18, touchSize: 30 },
-      { key: 'left',  label: '\u2190', shape: 'circle', x: 67,  y: 90,  visualSize: 18, touchSize: 30 },
-      { key: 'right', label: '\u2192', shape: 'circle', x: 93,  y: 90,  visualSize: 18, touchSize: 30 },
-      // Action buttons (right ear) — center at (320, 90), spacing 13
-      { key: 'x', label: 'X', shape: 'circle', x: 320, y: 77,  visualSize: 18, touchSize: 30 },
-      { key: 'y', label: 'Y', shape: 'circle', x: 333, y: 90,  visualSize: 18, touchSize: 30 },
-      { key: 'a', label: 'A', shape: 'circle', x: 307, y: 90,  visualSize: 18, touchSize: 30 },
-      { key: 'b', label: 'B', shape: 'circle', x: 320, y: 103, visualSize: 18, touchSize: 30 },
+      // D-pad (left ear) — center at (82, 113), spacing 11
+      { key: 'up',    label: '\u2191', shape: 'circle', x: 82,  y: 102, visualSize: 18, touchSize: 30 },
+      { key: 'down',  label: '\u2193', shape: 'circle', x: 82,  y: 124, visualSize: 18, touchSize: 30 },
+      { key: 'left',  label: '\u2190', shape: 'circle', x: 71,  y: 113, visualSize: 18, touchSize: 30 },
+      { key: 'right', label: '\u2192', shape: 'circle', x: 93,  y: 113, visualSize: 18, touchSize: 30 },
+      // Action buttons (right ear) — center at (318, 110), spacing 12
+      { key: 'x', label: 'X', shape: 'circle', x: 318, y: 98,  visualSize: 18, touchSize: 30 },
+      { key: 'y', label: 'Y', shape: 'circle', x: 330, y: 110, visualSize: 18, touchSize: 30 },
+      { key: 'a', label: 'A', shape: 'circle', x: 306, y: 110, visualSize: 18, touchSize: 30 },
+      { key: 'b', label: 'B', shape: 'circle', x: 318, y: 122, visualSize: 18, touchSize: 30 },
       // Menu / Start (center, below speaker)
-      { key: 'menu',  label: 'MENU',  shape: 'pill', x: 184, y: 186, visualSize: 20, touchSize: 34 },
-      { key: 'start', label: 'START', shape: 'pill', x: 217, y: 186, visualSize: 20, touchSize: 34 },
+      { key: 'menu',  label: 'MENU',  shape: 'pill', x: 182, y: 186, visualSize: 20, touchSize: 34 },
+      { key: 'start', label: 'START', shape: 'pill', x: 216, y: 186, visualSize: 20, touchSize: 34 },
     ],
   },
 };
