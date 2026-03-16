@@ -3,132 +3,265 @@ import { badgeSpecs, type BadgeSpec } from './badgeSpecs';
 import { createPythonGame, PY_TEMPLATE } from './pythonRuntime';
 import type { InputState, EmulatorAPI, Game, PixelOpsFrame } from './types';
 
+// ─── Display state ──────────────────────────────────────────
 const DISPLAY_W = 28;
 const DISPLAY_H = 18;
 const displayLines: string[] = [];
-
-const manual: InputState = {
-  up: false,
-  down: false,
-  left: false,
-  right: false,
-  a: false,
-  b: false,
-  x: false,
-  y: false,
-  menu: false,
-  start: false,
-};
-
-const motionState = {
-  enabled: false,
-  beta: 0,
-  gamma: 0,
-};
-
-const app = document.querySelector<HTMLDivElement>('#app')!;
-app.innerHTML = `
-<div class="mx-auto max-w-7xl p-4 md:p-6 space-y-4">
-  <div>
-    <h1 class="text-2xl md:text-3xl font-bold">🎮 Badge Games MicroPython Simulator</h1>
-    <p class="text-slate-300">Unified flow: pick a MicroPython game, edit code inline, run instantly.</p>
-  </div>
-
-  <div id="emulator-view" class="grid gap-4 lg:grid-cols-3">
-    <section class="card lg:col-span-2">
-      <div class="mb-3 flex flex-wrap items-center justify-between gap-3">
-        <div class="text-sm text-slate-300">Status: <span id="emu-status" class="text-cyan-300">idle</span></div>
-        <div class="flex flex-wrap gap-2 items-center">
-          <select id="game-picker" class="rounded-lg border border-slate-700 bg-slate-800 px-2 py-2 text-sm"></select>
-          <button id="btn-load" class="btn">Load game</button>
-          <button id="btn-reset" class="btn">Reset</button>
-        </div>
-      </div>
-
-      <div class="sim-hud">
-        <div id="display-header" class="sim-title">No game loaded</div>
-        <div id="display-footer" class="sim-subtitle">240x320 text display simulation</div>
-      </div>
-
-      <div id="badge-stage" class="badge-photo-stage">
-        <img id="badge-photo" class="badge-photo" src="" alt="Badge skin" />
-
-        <div id="screen-overlay" class="screen-overlay">
-          <pre id="display" class="badge-screen">Booting...</pre>
-          <canvas id="display-canvas" class="badge-canvas hidden"></canvas>
-        </div>
-
-        <div id="hotspots-layer"></div>
-      </div>
-    </section>
-
-    <section class="card space-y-3">
-      <h2 class="text-xl font-semibold">Game + Code</h2>
-
-      <button id="btn-motion" class="btn w-full">Enable phone tilt controls</button>
-      <p id="motion-status" class="text-xs text-slate-400">Motion: inactive (keyboard + on-screen still work)</p>
-      <button id="btn-calibrate" class="btn w-full">Open badge calibrator</button>
-
-      <div id="calibrator" class="hidden space-y-2 rounded-lg border border-slate-700 bg-slate-950 p-2">
-        <p class="text-xs text-slate-300">Calibrate current badge spec (pixel-space)</p>
-        <div class="grid grid-cols-4 gap-1 text-xs">
-          <label class="col-span-1">sx<input id="cal-sx" type="number" class="w-full rounded border border-slate-700 bg-slate-900 px-1 py-1" /></label>
-          <label class="col-span-1">sy<input id="cal-sy" type="number" class="w-full rounded border border-slate-700 bg-slate-900 px-1 py-1" /></label>
-          <label class="col-span-1">sw<input id="cal-sw" type="number" class="w-full rounded border border-slate-700 bg-slate-900 px-1 py-1" /></label>
-          <label class="col-span-1">sh<input id="cal-sh" type="number" class="w-full rounded border border-slate-700 bg-slate-900 px-1 py-1" /></label>
-        </div>
-        <div class="grid grid-cols-5 gap-1 text-xs">
-          <select id="cal-key" class="col-span-2 rounded border border-slate-700 bg-slate-900 px-1 py-1"></select>
-          <label>cx<input id="cal-cx" type="number" class="w-full rounded border border-slate-700 bg-slate-900 px-1 py-1" /></label>
-          <label>cy<input id="cal-cy" type="number" class="w-full rounded border border-slate-700 bg-slate-900 px-1 py-1" /></label>
-          <label>ts<input id="cal-ts" type="number" class="w-full rounded border border-slate-700 bg-slate-900 px-1 py-1" /></label>
-        </div>
-        <button id="btn-export-spec" class="btn w-full">Export current spec JSON</button>
-        <textarea id="cal-output" class="h-28 w-full rounded border border-slate-700 bg-slate-900 p-1 font-mono text-[11px]"></textarea>
-      </div>
-
-      <div class="space-y-2 border-t border-slate-700 pt-3">
-        <label class="text-sm">MicroPython game</label>
-        <select id="pygame-select" class="w-full rounded-lg border border-slate-700 bg-slate-800 px-2 py-2 text-sm"></select>
-        <div class="grid grid-cols-2 gap-2">
-          <button id="btn-load-pygame" class="btn">Load into editor</button>
-          <button id="btn-run-editor" class="btn">Run editor code</button>
-        </div>
-        <textarea id="py-editor" class="h-64 w-full rounded-lg border border-slate-700 bg-slate-900 p-2 font-mono text-xs text-slate-100" spellcheck="false"></textarea>
-        <p class="text-xs text-slate-400">Contract: define <code>init()</code> and <code>update(dt_ms, input_state)</code>.</p>
-      </div>
-    </section>
-  </div>
-</div>`;
-
-const displayEl = document.getElementById('display') as HTMLPreElement;
-const canvasEl = document.getElementById('display-canvas') as HTMLCanvasElement;
-const statusEl = document.getElementById('emu-status')!;
-const motionStatusEl = document.getElementById('motion-status')!;
-const headerEl = document.getElementById('display-header')!;
-const footerEl = document.getElementById('display-footer')!;
-const pickerEl = document.getElementById('game-picker') as HTMLSelectElement;
-const badgePhotoEl = document.getElementById('badge-photo') as HTMLImageElement;
-const screenOverlayEl = document.getElementById('screen-overlay') as HTMLDivElement;
-const hotspotsLayerEl = document.getElementById('hotspots-layer') as HTMLDivElement;
-const pySelectEl = document.getElementById('pygame-select') as HTMLSelectElement;
-const pyEditorEl = document.getElementById('py-editor') as HTMLTextAreaElement;
-const calibratorEl = document.getElementById('calibrator') as HTMLDivElement;
-const calibrateBtnEl = document.getElementById('btn-calibrate') as HTMLButtonElement;
-const calOutEl = document.getElementById('cal-output') as HTMLTextAreaElement;
-const calKeyEl = document.getElementById('cal-key') as HTMLSelectElement;
-const calSxEl = document.getElementById('cal-sx') as HTMLInputElement;
-const calSyEl = document.getElementById('cal-sy') as HTMLInputElement;
-const calSwEl = document.getElementById('cal-sw') as HTMLInputElement;
-const calShEl = document.getElementById('cal-sh') as HTMLInputElement;
-const calCxEl = document.getElementById('cal-cx') as HTMLInputElement;
-const calCyEl = document.getElementById('cal-cy') as HTMLInputElement;
-const calTsEl = document.getElementById('cal-ts') as HTMLInputElement;
-
 let activePixelFrame: PixelOpsFrame | null = null;
 let activeBadgeSpec: BadgeSpec = JSON.parse(JSON.stringify(badgeSpecs.fri3d_2024));
-let calibratorOpen = false;
 
+// ─── Input state ────────────────────────────────────────────
+const manual: InputState = {
+  up: false, down: false, left: false, right: false,
+  a: false, b: false, x: false, y: false,
+  menu: false, start: false,
+};
+
+const motionState = { enabled: false, beta: 0, gamma: 0 };
+
+// ─── View state ─────────────────────────────────────────────
+type View = 'library' | 'play';
+let currentView: View = 'library';
+let currentGame: Game | null = null;
+let last = performance.now();
+let devPanelOpen = false;
+
+// ─── Game registry ──────────────────────────────────────────
+const registry = new Map<string, Game>();
+
+const pyGames: Record<string, { name: string; path: string; description: string }> = {
+  tilt_maze_shared: {
+    name: 'Tilt Maze (Python)',
+    path: 'pygames/tilt_maze_game.py',
+    description: 'Navigate mazes using tilt or arrow keys. Shared MicroPython logic.',
+  },
+  pixel_bounce: {
+    name: 'Pixel Bounce',
+    path: 'pygames/pixel_bounce.py',
+    description: 'Pixel-mode canvas demo with bouncing elements.',
+  },
+};
+
+// ─── HTML shell ─────────────────────────────────────────────
+const app = document.querySelector<HTMLDivElement>('#app')!;
+app.innerHTML = `
+<div id="view-library" class="view">
+  <div class="library-container">
+    <header class="library-header">
+      <h1 class="library-title">Badge Games</h1>
+      <p class="library-subtitle">Fri3d Badge 2024 MicroPython Simulator</p>
+    </header>
+    <div id="game-grid" class="game-grid"></div>
+  </div>
+</div>
+
+<div id="view-play" class="view hidden">
+  <div class="play-container">
+    <nav class="play-nav">
+      <button id="btn-back" class="nav-btn" aria-label="Back to library">
+        <svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M13 4L7 10L13 16" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        <span>Games</span>
+      </button>
+      <span id="now-playing" class="now-playing"></span>
+      <div class="nav-actions">
+        <button id="btn-reset" class="nav-btn-sm">Reset</button>
+        <button id="btn-dev" class="nav-btn-sm">Dev</button>
+      </div>
+    </nav>
+
+    <div class="play-layout">
+      <div class="emulator-column">
+        <div id="badge-stage" class="badge-photo-stage">
+          <img id="badge-photo" class="badge-photo" src="" alt="Badge" />
+          <div id="screen-overlay" class="screen-overlay">
+            <pre id="display" class="badge-screen"></pre>
+            <canvas id="display-canvas" class="badge-canvas hidden"></canvas>
+          </div>
+          <div id="hotspots-layer"></div>
+        </div>
+
+        <div class="controls-hint">
+          <kbd>Arrows</kbd> move &nbsp; <kbd>Z</kbd> A &nbsp; <kbd>X</kbd> B &nbsp; <kbd>A</kbd> X &nbsp; <kbd>S</kbd> Y &nbsp; <kbd>M</kbd> menu &nbsp; <kbd>Enter</kbd> start
+        </div>
+
+        <button id="btn-motion" class="motion-btn">Enable tilt controls</button>
+        <p id="motion-status" class="motion-status">Keyboard + on-screen buttons active</p>
+      </div>
+
+      <div id="dev-panel" class="dev-panel hidden">
+        <div class="dev-panel-header">
+          <h3>Developer Tools</h3>
+          <button id="btn-close-dev" class="nav-btn-sm">Close</button>
+        </div>
+
+        <div class="dev-section">
+          <label class="dev-label">MicroPython Source</label>
+          <select id="pygame-select" class="dev-select"></select>
+          <div class="dev-btn-row">
+            <button id="btn-load-pygame" class="dev-btn">Load</button>
+            <button id="btn-run-editor" class="dev-btn dev-btn-primary">Run</button>
+          </div>
+          <textarea id="py-editor" class="dev-editor" spellcheck="false"></textarea>
+          <p class="dev-hint">Define <code>init()</code> and <code>update(dt_ms, input_state)</code></p>
+        </div>
+
+        <details class="dev-section">
+          <summary class="dev-label cursor-pointer">Badge Calibrator</summary>
+          <div class="calibrator-grid">
+            <label>sx<input id="cal-sx" type="number" class="cal-input" /></label>
+            <label>sy<input id="cal-sy" type="number" class="cal-input" /></label>
+            <label>sw<input id="cal-sw" type="number" class="cal-input" /></label>
+            <label>sh<input id="cal-sh" type="number" class="cal-input" /></label>
+          </div>
+          <div class="calibrator-grid mt-1">
+            <select id="cal-key" class="cal-input col-span-2"></select>
+            <label>cx<input id="cal-cx" type="number" class="cal-input" /></label>
+            <label>cy<input id="cal-cy" type="number" class="cal-input" /></label>
+            <label>ts<input id="cal-ts" type="number" class="cal-input" /></label>
+          </div>
+          <button id="btn-export-spec" class="dev-btn mt-2 w-full">Export spec JSON</button>
+          <textarea id="cal-output" class="cal-output"></textarea>
+        </details>
+      </div>
+    </div>
+  </div>
+</div>
+`;
+
+// ─── Element refs ───────────────────────────────────────────
+const $ = (id: string) => document.getElementById(id)!;
+const viewLibrary = $('view-library');
+const viewPlay = $('view-play');
+const gameGrid = $('game-grid');
+const displayEl = $('display') as HTMLPreElement;
+const canvasEl = $('display-canvas') as HTMLCanvasElement;
+const nowPlayingEl = $('now-playing');
+const badgePhotoEl = $('badge-photo') as HTMLImageElement;
+const screenOverlayEl = $('screen-overlay') as HTMLDivElement;
+const hotspotsLayerEl = $('hotspots-layer') as HTMLDivElement;
+const motionStatusEl = $('motion-status');
+const pySelectEl = $('pygame-select') as HTMLSelectElement;
+const pyEditorEl = $('py-editor') as HTMLTextAreaElement;
+const devPanelEl = $('dev-panel');
+const calOutEl = $('cal-output') as HTMLTextAreaElement;
+const calKeyEl = $('cal-key') as HTMLSelectElement;
+const calSxEl = $('cal-sx') as HTMLInputElement;
+const calSyEl = $('cal-sy') as HTMLInputElement;
+const calSwEl = $('cal-sw') as HTMLInputElement;
+const calShEl = $('cal-sh') as HTMLInputElement;
+const calCxEl = $('cal-cx') as HTMLInputElement;
+const calCyEl = $('cal-cy') as HTMLInputElement;
+const calTsEl = $('cal-ts') as HTMLInputElement;
+
+// ─── View switching ─────────────────────────────────────────
+function showView(view: View) {
+  currentView = view;
+  viewLibrary.classList.toggle('hidden', view !== 'library');
+  viewPlay.classList.toggle('hidden', view !== 'play');
+}
+
+// ─── Game cards ─────────────────────────────────────────────
+type GameCardInfo = {
+  id: string;
+  name: string;
+  description: string;
+  tag: string;
+};
+
+function getGameCards(): GameCardInfo[] {
+  const cards: GameCardInfo[] = [];
+
+  for (const g of registry.values()) {
+    if (g.id === 'python-live') continue;
+    let desc = '';
+    let tag = 'Built-in';
+    if (g.id === 'tilt-maze') {
+      desc = 'Navigate mazes by tilting the badge or using arrow keys. 3 levels with best-time tracking.';
+      tag = 'JavaScript';
+    } else if (g.id === 'reaction-arena') {
+      desc = 'Test your reaction speed. Coming soon.';
+      tag = 'Placeholder';
+    } else if (g.id === 'pixel-studio') {
+      desc = 'Creative pixel drawing tool. Coming soon.';
+      tag = 'Placeholder';
+    }
+    cards.push({ id: g.id, name: g.name, description: desc, tag });
+  }
+
+  for (const [id, meta] of Object.entries(pyGames)) {
+    cards.push({ id: `py:${id}`, name: meta.name, description: meta.description, tag: 'Python' });
+  }
+
+  return cards;
+}
+
+function renderGameGrid() {
+  const cards = getGameCards();
+  gameGrid.innerHTML = cards
+    .map(
+      (c) => `
+    <button class="game-card" data-game-id="${c.id}">
+      <div class="game-card-tag">${c.tag}</div>
+      <h3 class="game-card-title">${c.name}</h3>
+      <p class="game-card-desc">${c.description}</p>
+      <span class="game-card-play">Play</span>
+    </button>`,
+    )
+    .join('');
+
+  gameGrid.querySelectorAll<HTMLButtonElement>('.game-card').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const id = btn.dataset.gameId!;
+      launchGame(id);
+    });
+  });
+}
+
+async function launchGame(id: string) {
+  if (id.startsWith('py:')) {
+    const pyId = id.slice(3);
+    try {
+      const source = await loadPyGameSourceById(pyId);
+      const game = createPythonGame(source);
+      registry.set(game.id, game);
+      currentGame = game;
+      nowPlayingEl.textContent = pyGames[pyId]?.name || 'Python Game';
+    } catch (e) {
+      alert(`Failed to load Python game: ${(e as Error).message}`);
+      return;
+    }
+  } else {
+    const game = registry.get(id);
+    if (!game) return;
+    currentGame = game;
+    nowPlayingEl.textContent = game.name;
+  }
+
+  showView('play');
+  currentGame.init(api);
+  flushDisplay();
+}
+
+// ─── Emulator API ───────────────────────────────────────────
+const api: EmulatorAPI = {
+  width: DISPLAY_W,
+  height: DISPLAY_H,
+  clear: () => {
+    displayLines.length = 0;
+    activePixelFrame = null;
+  },
+  print: (line: string) => {
+    displayLines.push(line.slice(0, DISPLAY_W));
+    while (displayLines.length > DISPLAY_H) displayLines.shift();
+  },
+  setHeader: () => {},
+  setFooter: () => {},
+  setPixelFrame: (frame) => {
+    activePixelFrame = frame;
+  },
+};
+
+// ─── Display rendering ─────────────────────────────────────
 function showTextScreen() {
   displayEl.classList.remove('hidden');
   canvasEl.classList.add('hidden');
@@ -165,24 +298,6 @@ function renderPixelFrame(frame: PixelOpsFrame) {
   }
 }
 
-const api: EmulatorAPI = {
-  width: DISPLAY_W,
-  height: DISPLAY_H,
-  clear: () => {
-    displayLines.length = 0;
-    activePixelFrame = null;
-  },
-  print: (line: string) => {
-    displayLines.push(line.slice(0, DISPLAY_W));
-    while (displayLines.length > DISPLAY_H) displayLines.shift();
-  },
-  setHeader: (t: string) => (headerEl.textContent = t),
-  setFooter: (t: string) => (footerEl.textContent = t),
-  setPixelFrame: (frame) => {
-    activePixelFrame = frame;
-  },
-};
-
 function flushDisplay() {
   if (activePixelFrame) {
     showCanvasScreen();
@@ -196,23 +311,20 @@ function flushDisplay() {
   displayEl.textContent = padded.map((l) => l.padEnd(DISPLAY_W, ' ')).join('\n');
 }
 
+// ─── Input ──────────────────────────────────────────────────
 const keyMap: Record<string, keyof InputState> = {
-  ArrowUp: 'up',
-  ArrowDown: 'down',
-  ArrowLeft: 'left',
-  ArrowRight: 'right',
-  z: 'a',
-  x: 'b',
-  a: 'x',
-  s: 'y',
-  m: 'menu',
-  Enter: 'start',
+  ArrowUp: 'up', ArrowDown: 'down', ArrowLeft: 'left', ArrowRight: 'right',
+  z: 'a', x: 'b', a: 'x', s: 'y', m: 'menu', Enter: 'start',
 };
 
 document.addEventListener('keydown', (e) => {
   const k = keyMap[e.key];
-  if (k) manual[k] = true;
+  if (k) { manual[k] = true; e.preventDefault(); }
+  if (e.key === 'Escape' && currentView === 'play') {
+    showView('library');
+  }
 });
+
 document.addEventListener('keyup', (e) => {
   const k = keyMap[e.key];
   if (k) manual[k] = false;
@@ -221,32 +333,65 @@ document.addEventListener('keyup', (e) => {
 function bindHotspotInputs() {
   document.querySelectorAll<HTMLButtonElement>('[data-key]').forEach((btn) => {
     const k = btn.dataset.key as keyof InputState;
-    const on = () => {
-      manual[k] = true;
-      btn.classList.add('pressed');
-    };
-    const off = () => {
-      manual[k] = false;
-      btn.classList.remove('pressed');
-    };
+    const on = () => { manual[k] = true; btn.classList.add('pressed'); };
+    const off = () => { manual[k] = false; btn.classList.remove('pressed'); };
     btn.onmousedown = on;
     btn.onmouseup = off;
     btn.onmouseleave = off;
-    btn.ontouchstart = (e) => {
-      e.preventDefault();
-      on();
-    };
-    btn.ontouchend = (e) => {
-      e.preventDefault();
-      off();
-    };
+    btn.ontouchstart = (e) => { e.preventDefault(); on(); };
+    btn.ontouchend = (e) => { e.preventDefault(); off(); };
   });
 }
 
+function motionToInput(): Partial<InputState> {
+  if (!motionState.enabled) return {};
+  const t = 12;
+  return {
+    up: motionState.beta < -t,
+    down: motionState.beta > t,
+    left: motionState.gamma < -t,
+    right: motionState.gamma > t,
+  };
+}
+
+function combinedInput(): InputState {
+  const m = motionToInput();
+  return {
+    up: manual.up || !!m.up, down: manual.down || !!m.down,
+    left: manual.left || !!m.left, right: manual.right || !!m.right,
+    a: manual.a, b: manual.b, x: manual.x, y: manual.y,
+    menu: manual.menu, start: manual.start,
+  };
+}
+
+async function enableMotion() {
+  try {
+    const anyWindow = window as unknown as {
+      DeviceOrientationEvent?: { requestPermission?: () => Promise<'granted' | 'denied'> };
+    };
+    const req = anyWindow.DeviceOrientationEvent?.requestPermission;
+    if (req) {
+      const result = await req();
+      if (result !== 'granted') {
+        motionStatusEl.textContent = 'Motion permission denied.';
+        return;
+      }
+    }
+    window.addEventListener('deviceorientation', (ev) => {
+      motionState.beta = ev.beta ?? 0;
+      motionState.gamma = ev.gamma ?? 0;
+    });
+    motionState.enabled = true;
+    motionStatusEl.textContent = 'Tilt active. Move phone to control.';
+  } catch (e) {
+    motionStatusEl.textContent = `Motion failed: ${(e as Error).message}`;
+  }
+}
+
+// ─── Badge spec ─────────────────────────────────────────────
 function applyBadgeSpec(spec: BadgeSpec) {
   badgePhotoEl.src = spec.imageUrl;
   badgePhotoEl.alt = spec.name;
-
   const pxToPctX = (x: number) => (x / spec.baseWidth) * 100;
   const pxToPctY = (y: number) => (y / spec.baseHeight) * 100;
 
@@ -265,6 +410,7 @@ function applyBadgeSpec(spec: BadgeSpec) {
   bindHotspotInputs();
 }
 
+// ─── Calibrator ─────────────────────────────────────────────
 function refreshCalibratorUi() {
   calSxEl.value = String(Math.round(activeBadgeSpec.screen.x));
   calSyEl.value = String(Math.round(activeBadgeSpec.screen.y));
@@ -306,86 +452,87 @@ function applyCalibratorValues() {
 }
 
 function bindCalibrator() {
-  calibrateBtnEl.addEventListener('click', () => {
-    calibratorOpen = !calibratorOpen;
-    calibratorEl.classList.toggle('hidden', !calibratorOpen);
-    calibrateBtnEl.textContent = calibratorOpen ? 'Close badge calibrator' : 'Open badge calibrator';
-    refreshCalibratorUi();
-  });
-
   [calSxEl, calSyEl, calSwEl, calShEl, calCxEl, calCyEl, calTsEl].forEach((el) => {
     el.addEventListener('input', applyCalibratorValues);
   });
-
   calKeyEl.addEventListener('change', refreshCalibratorUi);
-
-  (document.getElementById('btn-export-spec') as HTMLButtonElement).addEventListener('click', () => {
+  ($('btn-export-spec') as HTMLButtonElement).addEventListener('click', () => {
     calOutEl.value = JSON.stringify(activeBadgeSpec, null, 2);
   });
 }
 
-function motionToInput(): Partial<InputState> {
-  if (!motionState.enabled) return {};
-  const t = 12; // degrees threshold
-  const beta = motionState.beta; // front-back
-  const gamma = motionState.gamma; // left-right
-  return {
-    up: beta < -t,
-    down: beta > t,
-    left: gamma < -t,
-    right: gamma > t,
-  };
+// ─── Python loading ─────────────────────────────────────────
+async function loadPyGameSourceById(id: string) {
+  if (id === 'python_template') return PY_TEMPLATE;
+  const meta = pyGames[id];
+  if (!meta) throw new Error(`Unknown game: ${id}`);
+  const url = `${import.meta.env.BASE_URL}${meta.path}`;
+  const res = await fetch(url);
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  return await res.text();
 }
 
-function combinedInput(): InputState {
-  const m = motionToInput();
-  return {
-    up: manual.up || !!m.up,
-    down: manual.down || !!m.down,
-    left: manual.left || !!m.left,
-    right: manual.right || !!m.right,
-    a: manual.a,
-    b: manual.b,
-    x: manual.x,
-    y: manual.y,
-    menu: manual.menu,
-    start: manual.start,
-  };
+function refreshPyGameSelect() {
+  pySelectEl.innerHTML = '';
+  Object.entries(pyGames).forEach(([id, meta]) => {
+    const o = document.createElement('option');
+    o.value = id;
+    o.textContent = meta.name;
+    pySelectEl.appendChild(o);
+  });
+  const tplOpt = document.createElement('option');
+  tplOpt.value = 'python_template';
+  tplOpt.textContent = 'Blank template';
+  pySelectEl.appendChild(tplOpt);
 }
 
-async function enableMotion() {
-  try {
-    const anyWindow = window as unknown as {
-      DeviceOrientationEvent?: {
-        requestPermission?: () => Promise<'granted' | 'denied'>;
-      };
-    };
+// ─── Event bindings ─────────────────────────────────────────
+$('btn-back').addEventListener('click', () => showView('library'));
 
-    const req = anyWindow.DeviceOrientationEvent?.requestPermission;
-    if (req) {
-      const result = await req();
-      if (result !== 'granted') {
-        motionStatusEl.textContent = 'Motion permission denied.';
-        return;
-      }
-    }
-
-    window.addEventListener('deviceorientation', (ev) => {
-      motionState.beta = ev.beta ?? 0;
-      motionState.gamma = ev.gamma ?? 0;
-    });
-
-    motionState.enabled = true;
-    motionStatusEl.textContent = 'Motion active. Tilt phone to move in supported games.';
-  } catch (e) {
-    motionStatusEl.textContent = `Motion setup failed: ${(e as Error).message}`;
+$('btn-reset').addEventListener('click', () => {
+  if (currentGame) {
+    currentGame.init(api);
+    flushDisplay();
   }
-}
+});
 
-(document.getElementById('btn-motion') as HTMLButtonElement).addEventListener('click', enableMotion);
+$('btn-dev').addEventListener('click', () => {
+  devPanelOpen = !devPanelOpen;
+  devPanelEl.classList.toggle('hidden', !devPanelOpen);
+});
 
-// Python runtime moved to pythonRuntime.ts
+$('btn-close-dev').addEventListener('click', () => {
+  devPanelOpen = false;
+  devPanelEl.classList.add('hidden');
+});
 
+$('btn-motion').addEventListener('click', enableMotion);
+
+$('btn-load-pygame').addEventListener('click', async () => {
+  try {
+    const id = pySelectEl.value;
+    const source = id === 'python_template' ? PY_TEMPLATE : await loadPyGameSourceById(id);
+    pyEditorEl.value = source;
+  } catch (e) {
+    pyEditorEl.value = `# Load failed: ${(e as Error).message}`;
+  }
+});
+
+$('btn-run-editor').addEventListener('click', async () => {
+  try {
+    const source = pyEditorEl.value.trim() || PY_TEMPLATE;
+    const game = createPythonGame(source);
+    registry.set(game.id, game);
+    currentGame = game;
+    nowPlayingEl.textContent = 'Python Game (live)';
+    game.init(api);
+    flushDisplay();
+  } catch (e) {
+    alert(`Run failed: ${(e as Error).message}`);
+  }
+});
+
+// ─── Built-in games ─────────────────────────────────────────
 function makeTiltMazeGame(): Game {
   type Cell = '#' | '.' | 'S' | 'G';
   const levels = [
@@ -408,28 +555,25 @@ function makeTiltMazeGame(): Game {
     return { x: 1, y: 1 };
   };
 
-  const reset = () => {
-    ball = find(levels[level].grid, 'S');
-    t0 = performance.now();
-    stepCooldown = 0;
-  };
+  const reset = () => { ball = find(levels[level].grid, 'S'); t0 = performance.now(); stepCooldown = 0; };
 
-  const render = (api2: EmulatorAPI) => {
-    api2.clear();
+  const render = (a: EmulatorAPI) => {
+    a.clear();
     const elapsed = (performance.now() - t0) / 1000;
     const key = `level_${level + 1}`;
-    api2.setHeader(`Tilt Maze • ${levels[level].name}`);
-    api2.setFooter(`Time ${elapsed.toFixed(1)}s | Best ${best[key] ? best[key].toFixed(1) + 's' : '--'} | tilt/arrows`);
+    a.print(`  Tilt Maze - ${levels[level].name}`);
+    a.print(`  Time: ${elapsed.toFixed(1)}s  Best: ${best[key] ? best[key].toFixed(1) + 's' : '--'}`);
+    a.print('');
 
     for (let y = 0; y < levels[level].grid.length; y++) {
-      let line = '';
+      let line = '  ';
       for (let x = 0; x < levels[level].grid[y].length; x++) {
         const c = levels[level].grid[y][x] as Cell;
         if (x === ball.x && y === ball.y) line += 'O';
         else if (c === 'S') line += '.';
         else line += c;
       }
-      api2.print(line);
+      a.print(line);
     }
   };
 
@@ -441,7 +585,6 @@ function makeTiltMazeGame(): Game {
     const cell = grid[ny][nx] as Cell;
     if (cell === '#') return;
     ball = { x: nx, y: ny };
-
     if (cell === 'G') {
       const t = (performance.now() - t0) / 1000;
       const k = `level_${level + 1}`;
@@ -457,28 +600,16 @@ function makeTiltMazeGame(): Game {
   return {
     id: 'tilt-maze',
     name: 'Tilt Maze',
-    init(api2) {
-      reset();
-      render(api2);
-    },
-    tick(dt, i, api2) {
+    init(a) { reset(); render(a); },
+    tick(dt, i, a) {
       stepCooldown -= dt;
       if (stepCooldown <= 0) {
-        if (i.up || i.y) {
-          tryMove(0, -1);
-          stepCooldown = 120;
-        } else if (i.down || i.a) {
-          tryMove(0, 1);
-          stepCooldown = 120;
-        } else if (i.left || i.x) {
-          tryMove(-1, 0);
-          stepCooldown = 120;
-        } else if (i.right || i.b) {
-          tryMove(1, 0);
-          stepCooldown = 120;
-        }
+        if (i.up || i.y) { tryMove(0, -1); stepCooldown = 120; }
+        else if (i.down || i.a) { tryMove(0, 1); stepCooldown = 120; }
+        else if (i.left || i.x) { tryMove(-1, 0); stepCooldown = 120; }
+        else if (i.right || i.b) { tryMove(1, 0); stepCooldown = 120; }
       }
-      render(api2);
+      render(a);
     },
   };
 }
@@ -488,130 +619,47 @@ function makePlaceholder(id: string, name: string): Game {
   return {
     id,
     name,
-    init(api2) {
-      api2.clear();
-      api2.setHeader(`${name} (placeholder)`);
-      api2.setFooter('coming soon');
-      api2.print(`${name}`);
-      api2.print('Scaffold is ready.');
-      api2.print('Use MENU/START to test input.');
+    init(a) {
+      a.clear();
+      a.print(`  ${name}`);
+      a.print('');
+      a.print('  Coming soon...');
+      a.print('  Use MENU/START to test input.');
     },
-    tick(dt, i, api2) {
+    tick(dt, i, a) {
       t += dt;
       if (t > 250) {
         t = 0;
-        api2.clear();
-        api2.print(`${name}`);
-        api2.print('Scaffold is ready.');
-        api2.print(i.menu ? 'MENU pressed' : '');
-        api2.print(i.start ? 'START pressed' : '');
+        a.clear();
+        a.print(`  ${name}`);
+        a.print('');
+        a.print(i.menu ? '  MENU pressed' : '');
+        a.print(i.start ? '  START pressed' : '');
       }
     },
   };
 }
 
-const registry = new Map<string, Game>();
-registry.set('tilt-maze', makeTiltMazeGame());
-registry.set('reaction-arena', makePlaceholder('reaction-arena', 'Reaction Arena'));
-registry.set('pixel-studio', makePlaceholder('pixel-studio', 'Pixel Studio'));
-
-function refreshPicker() {
-  pickerEl.innerHTML = '';
-  for (const g of registry.values()) {
-    const o = document.createElement('option');
-    o.value = g.id;
-    o.textContent = g.name;
-    pickerEl.appendChild(o);
-  }
-}
-
-let currentGame: Game | null = null;
-let last = performance.now();
-
-function loadGame(id: string) {
-  const g = registry.get(id);
-  if (!g) return;
-  currentGame = g;
-  statusEl.textContent = `loaded: ${g.name}`;
-  g.init(api);
-  flushDisplay();
-}
-
-(document.getElementById('btn-load') as HTMLButtonElement).addEventListener('click', () => loadGame(pickerEl.value));
-(document.getElementById('btn-reset') as HTMLButtonElement).addEventListener('click', () => currentGame?.init(api));
-
-const pyGames: Record<string, { name: string; path: string }> = {
-  tilt_maze_shared: { name: 'Tilt Maze (shared)', path: 'pygames/tilt_maze_game.py' },
-  pixel_bounce: { name: 'Pixel Bounce (canvas)', path: 'pygames/pixel_bounce.py' },
-  python_template: { name: 'Python template', path: '' },
-};
-
-function refreshPyGameSelect() {
-  pySelectEl.innerHTML = '';
-  Object.entries(pyGames).forEach(([id, meta]) => {
-    const o = document.createElement('option');
-    o.value = id;
-    o.textContent = meta.name;
-    pySelectEl.appendChild(o);
-  });
-}
-
-async function loadPyGameSourceById(id: string) {
-  if (id === 'python_template') return PY_TEMPLATE;
-  const meta = pyGames[id];
-  if (!meta) throw new Error(`Unknown game: ${id}`);
-  const url = `${import.meta.env.BASE_URL}${meta.path}`;
-  const res = await fetch(url);
-  if (!res.ok) throw new Error(`HTTP ${res.status}`);
-  return await res.text();
-}
-
-async function runPythonSource(source: string, label: string) {
-  const game = createPythonGame(source);
-  registry.set(game.id, game);
-  refreshPicker();
-  pickerEl.value = game.id;
-  loadGame(game.id);
-  statusEl.textContent = label;
-}
-
-(document.getElementById('btn-load-pygame') as HTMLButtonElement).addEventListener('click', async () => {
-  try {
-    const id = pySelectEl.value;
-    const source = await loadPyGameSourceById(id);
-    pyEditorEl.value = source;
-    statusEl.textContent = `loaded into editor: ${pyGames[id]?.name || id}`;
-  } catch (e) {
-    statusEl.textContent = `load failed: ${(e as Error).message}`;
-  }
-});
-
-(document.getElementById('btn-run-editor') as HTMLButtonElement).addEventListener('click', async () => {
-  try {
-    const source = pyEditorEl.value.trim() ? pyEditorEl.value : PY_TEMPLATE;
-    await runPythonSource(source, 'running editor MicroPython code');
-  } catch (e) {
-    statusEl.textContent = `run failed: ${(e as Error).message}`;
-  }
-});
-
+// ─── Game loop ──────────────────────────────────────────────
 function loop() {
   const now = performance.now();
   const dt = now - last;
   last = now;
-  currentGame?.tick(dt, combinedInput(), api);
-  flushDisplay();
+  if (currentView === 'play' && currentGame) {
+    currentGame.tick(dt, combinedInput(), api);
+    flushDisplay();
+  }
   requestAnimationFrame(loop);
 }
+
+// ─── Boot ───────────────────────────────────────────────────
+registry.set('tilt-maze', makeTiltMazeGame());
+registry.set('reaction-arena', makePlaceholder('reaction-arena', 'Reaction Arena'));
+registry.set('pixel-studio', makePlaceholder('pixel-studio', 'Pixel Studio'));
 
 applyBadgeSpec(activeBadgeSpec);
 bindCalibrator();
 refreshCalibratorUi();
-refreshPicker();
 refreshPyGameSelect();
-pySelectEl.value = 'tilt_maze_shared';
-loadPyGameSourceById('tilt_maze_shared').then((src) => (pyEditorEl.value = src)).catch(() => {
-  pyEditorEl.value = PY_TEMPLATE;
-});
-loadGame('tilt-maze');
+renderGameGrid();
 requestAnimationFrame(loop);

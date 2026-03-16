@@ -4,19 +4,130 @@
 
 :root {
   color-scheme: dark;
+  --accent: #06b6d4;
+  --accent-hover: #22d3ee;
+  --surface: #0f172a;
+  --surface-raised: #1e293b;
+  --surface-overlay: #334155;
+  --text: #f1f5f9;
+  --text-muted: #94a3b8;
+  --border: #334155;
 }
 
-.card {
-  @apply rounded-2xl border border-slate-700 bg-slate-900 p-4 shadow;
+body {
+  @apply bg-slate-950 text-slate-100;
+  font-family: system-ui, -apple-system, sans-serif;
 }
 
-.btn {
-  @apply rounded-xl bg-cyan-600 px-3 py-2 font-medium text-white hover:bg-cyan-500 disabled:opacity-50;
+/* ─── Views ────────────────────────────────────────────── */
+
+.view {
+  min-height: 100dvh;
 }
 
-.pad {
-  @apply rounded-xl border border-slate-600 bg-slate-800 px-3 py-2 text-sm font-semibold text-slate-100 active:bg-slate-700;
+.hidden { display: none !important; }
+
+/* ─── Library view ─────────────────────────────────────── */
+
+.library-container {
+  @apply mx-auto max-w-4xl px-4 py-8;
 }
+
+.library-header {
+  @apply mb-8 text-center;
+}
+
+.library-title {
+  @apply text-4xl font-bold tracking-tight;
+  background: linear-gradient(135deg, var(--accent), #a78bfa);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.library-subtitle {
+  @apply mt-2 text-base text-slate-400;
+}
+
+.game-grid {
+  @apply grid gap-4;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+}
+
+.game-card {
+  @apply relative flex flex-col rounded-2xl border border-slate-700/60 p-5 text-left transition-all duration-200;
+  background: var(--surface-raised);
+}
+
+.game-card:hover {
+  @apply border-cyan-500/50 shadow-lg;
+  transform: translateY(-2px);
+  box-shadow: 0 8px 30px rgba(6, 182, 212, 0.1);
+}
+
+.game-card:active {
+  transform: translateY(0);
+}
+
+.game-card-tag {
+  @apply mb-2 inline-block self-start rounded-full px-2.5 py-0.5 text-xs font-medium;
+  background: rgba(6, 182, 212, 0.15);
+  color: var(--accent-hover);
+}
+
+.game-card-title {
+  @apply text-lg font-semibold text-white;
+}
+
+.game-card-desc {
+  @apply mt-1 flex-1 text-sm leading-relaxed text-slate-400;
+}
+
+.game-card-play {
+  @apply mt-4 inline-block self-start rounded-lg px-4 py-1.5 text-sm font-medium text-white transition-colors;
+  background: var(--accent);
+}
+
+.game-card:hover .game-card-play {
+  background: var(--accent-hover);
+}
+
+/* ─── Play view ────────────────────────────────────────── */
+
+.play-container {
+  @apply mx-auto max-w-7xl;
+}
+
+.play-nav {
+  @apply flex items-center justify-between gap-3 border-b border-slate-800 px-4 py-3;
+}
+
+.nav-btn {
+  @apply flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-medium text-slate-300 transition-colors hover:bg-slate-800 hover:text-white;
+}
+
+.nav-btn-sm {
+  @apply rounded-lg px-3 py-1.5 text-xs font-medium text-slate-400 transition-colors hover:bg-slate-800 hover:text-white;
+}
+
+.nav-actions {
+  @apply flex gap-2;
+}
+
+.now-playing {
+  @apply text-sm font-medium text-slate-200;
+}
+
+.play-layout {
+  @apply flex gap-0;
+  min-height: calc(100dvh - 52px);
+}
+
+.emulator-column {
+  @apply flex flex-1 flex-col items-center px-4 py-6;
+}
+
+/* ─── Badge emulator ───────────────────────────────────── */
 
 .badge-photo-stage {
   @apply relative mx-auto w-[420px] max-w-full;
@@ -24,19 +135,9 @@
 }
 
 .badge-photo {
-  @apply h-full w-full rounded-2xl border border-slate-600 object-cover shadow-2xl;
-}
-
-.sim-hud {
-  @apply mb-2 text-center;
-}
-
-.sim-title {
-  @apply text-sm font-semibold text-slate-100;
-}
-
-.sim-subtitle {
-  @apply text-xs text-slate-400;
+  @apply h-full w-full rounded-2xl object-cover;
+  border: 1px solid rgba(100, 116, 139, 0.3);
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.4);
 }
 
 .screen-overlay {
@@ -55,6 +156,7 @@
   @apply h-full w-full overflow-hidden p-2 text-[11px] leading-[1.15] text-green-300;
   margin: 0;
   background: rgba(2, 6, 4, 0.96);
+  font-family: 'Courier New', monospace;
 }
 
 .badge-canvas {
@@ -70,6 +172,7 @@
   background: transparent;
   opacity: 0;
   touch-action: none;
+  cursor: pointer;
 }
 
 .hotspot-touch.pill {
@@ -77,6 +180,127 @@
 }
 
 .hotspot-touch.pressed {
-  opacity: 0.12;
-  background: rgba(34, 211, 238, 0.55);
+  opacity: 0.15;
+  background: rgba(34, 211, 238, 0.6);
+}
+
+/* ─── Controls hint ────────────────────────────────────── */
+
+.controls-hint {
+  @apply mt-4 text-center text-xs text-slate-500;
+}
+
+.controls-hint kbd {
+  @apply inline-block rounded border border-slate-600 bg-slate-800 px-1.5 py-0.5 font-mono text-[10px] text-slate-300;
+}
+
+/* ─── Motion controls ──────────────────────────────────── */
+
+.motion-btn {
+  @apply mt-3 rounded-lg border border-slate-700 bg-slate-800/60 px-4 py-2 text-xs text-slate-400 transition-colors hover:border-cyan-600 hover:text-cyan-300;
+}
+
+.motion-status {
+  @apply mt-1 text-center text-[11px] text-slate-500;
+}
+
+/* ─── Dev panel ────────────────────────────────────────── */
+
+.dev-panel {
+  @apply flex flex-col border-l border-slate-800;
+  width: 380px;
+  max-width: 40vw;
+  background: var(--surface);
+  overflow-y: auto;
+}
+
+.dev-panel-header {
+  @apply flex items-center justify-between border-b border-slate-800 px-4 py-3;
+}
+
+.dev-panel-header h3 {
+  @apply text-sm font-semibold text-slate-300;
+}
+
+.dev-section {
+  @apply border-b border-slate-800/60 px-4 py-3;
+}
+
+.dev-label {
+  @apply mb-1.5 block text-xs font-medium text-slate-400;
+}
+
+.dev-select {
+  @apply w-full rounded-lg border border-slate-700 bg-slate-800 px-2 py-1.5 text-sm text-slate-200;
+}
+
+.dev-btn-row {
+  @apply mt-2 flex gap-2;
+}
+
+.dev-btn {
+  @apply rounded-lg border border-slate-600 bg-slate-800 px-3 py-1.5 text-xs font-medium text-slate-300 transition-colors hover:bg-slate-700;
+}
+
+.dev-btn-primary {
+  @apply border-cyan-700 bg-cyan-900/40 text-cyan-300 hover:bg-cyan-800/50;
+}
+
+.dev-editor {
+  @apply mt-2 h-72 w-full rounded-lg border border-slate-700 bg-slate-900 p-3 font-mono text-xs text-slate-100;
+  resize: vertical;
+}
+
+.dev-hint {
+  @apply mt-1 text-[11px] text-slate-500;
+}
+
+.dev-hint code {
+  @apply text-slate-400;
+}
+
+/* ─── Calibrator ───────────────────────────────────────── */
+
+.calibrator-grid {
+  @apply mt-2 grid grid-cols-4 gap-1 text-xs;
+}
+
+.calibrator-grid label {
+  @apply text-slate-500;
+}
+
+.cal-input {
+  @apply w-full rounded border border-slate-700 bg-slate-900 px-1 py-1 text-xs text-slate-200;
+}
+
+.cal-output {
+  @apply mt-2 h-24 w-full rounded border border-slate-700 bg-slate-900 p-1 font-mono text-[10px] text-slate-300;
+  resize: vertical;
+}
+
+/* ─── Responsive ───────────────────────────────────────── */
+
+@media (max-width: 768px) {
+  .library-title {
+    @apply text-3xl;
+  }
+
+  .game-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .play-layout {
+    @apply flex-col;
+  }
+
+  .dev-panel {
+    width: 100%;
+    max-width: 100%;
+    border-left: 0;
+    @apply border-t border-slate-800;
+  }
+
+  .controls-hint {
+    @apply hidden;
+  }
 }
