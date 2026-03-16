@@ -138,7 +138,12 @@ export function createPythonGame(
 
         if (out?.header) api.setHeader(out.header);
         if (out?.footer) api.setFooter(out.footer);
-        if (out?.lines) {
+
+        if (out?.pixel) {
+          api.clear();
+          api.setPixelFrame(out.pixel);
+        } else if (out?.lines) {
+          api.setPixelFrame(null);
           api.clear();
           out.lines.forEach((l) => api.print(String(l)));
         }

@@ -11,6 +11,12 @@ export type InputState = {
   start: boolean;
 };
 
+export type PixelOpsFrame = {
+  width: number;
+  height: number;
+  ops: Array<["fill", string] | ["rect", number, number, number, number, string]>;
+};
+
 export type EmulatorAPI = {
   width: number;
   height: number;
@@ -18,6 +24,7 @@ export type EmulatorAPI = {
   print: (line: string) => void;
   setHeader: (text: string) => void;
   setFooter: (text: string) => void;
+  setPixelFrame: (frame: PixelOpsFrame | null) => void;
 };
 
 export type Game = {
@@ -31,4 +38,5 @@ export type PyGameFrame = {
   header?: string;
   footer?: string;
   lines?: string[];
+  pixel?: PixelOpsFrame;
 };

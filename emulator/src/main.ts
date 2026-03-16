@@ -1,7 +1,7 @@
 import './style.css';
 import { badgeSpecs, type BadgeSpec } from './badgeSpecs';
 import { createPythonGame, PY_TEMPLATE } from './pythonRuntime';
-import type { InputState, EmulatorAPI, Game } from './types';
+import type { InputState, EmulatorAPI, Game, PixelOpsFrame } from './types';
 
 const DISPLAY_W = 28;
 const DISPLAY_H = 18;
@@ -51,6 +51,7 @@ app.innerHTML = `
         <div id="screen-overlay" class="screen-overlay">
           <div id="display-header" class="badge-header">No game loaded</div>
           <pre id="display" class="badge-screen">Booting...</pre>
+          <canvas id="display-canvas" class="badge-screen hidden"></canvas>
           <div id="display-footer" class="badge-footer">240x320 text display simulation</div>
         </div>
 
@@ -78,7 +79,8 @@ app.innerHTML = `
   </div>
 </div>`;
 
-const displayEl = document.getElementById('display')!;
+const displayEl = document.getElementById('display') as HTMLPreElement;
+const canvasEl = document.getElementById('display-canvas') as HTMLCanvasElement;
 const statusEl = document.getElementById('emu-status')!;
 const motionStatusEl = document.getElementById('motion-status')!;
 const headerEl = document.getElementById('display-header')!;
@@ -90,11 +92,47 @@ const hotspotsLayerEl = document.getElementById('hotspots-layer') as HTMLDivElem
 const pySelectEl = document.getElementById('pygame-select') as HTMLSelectElement;
 const pyEditorEl = document.getElementById('py-editor') as HTMLTextAreaElement;
 
+let activePixelFrame: PixelOpsFrame | null = null;
+
+function showTextScreen() {
+  displayEl.classList.remove('hidden');
+  canvasEl.classList.add('hidden');
+}
+
+function showCanvasScreen() {
+  canvasEl.classList.remove('hidden');
+  displayEl.classList.add('hidden');
+}
+
+function renderPixelFrame(frame: PixelOpsFrame) {
+  const scale = 3;
+  canvasEl.width = frame.width;
+  canvasEl.height = frame.height;
+  canvasEl.style.width = `${frame.width * scale}px`;
+  canvasEl.style.height = `${frame.height * scale}px`;
+
+  const ctx = canvasEl.getContext('2d');
+  if (!ctx) return;
+  ctx.imageSmoothingEnabled = false;
+
+  for (const op of frame.ops) {
+    if (op[0] === 'fill') {
+      ctx.fillStyle = op[1];
+      ctx.fillRect(0, 0, frame.width, frame.height);
+    } else if (op[0] === 'rect') {
+      const [, x, y, w, h, color] = op;
+      ctx.fillStyle = color;
+      ctx.fillRect(x, y, w, h);
+    }
+  }
+}
+
 const api: EmulatorAPI = {
   width: DISPLAY_W,
   height: DISPLAY_H,
   clear: () => {
     displayLines.length = 0;
+    activePixelFrame = null;
   },
   print: (line: string) => {
     displayLines.push(line.slice(0, DISPLAY_W));
@@ -102,9 +140,19 @@ const api: EmulatorAPI = {
   },
   setHeader: (t: string) => (headerEl.textContent = t),
   setFooter: (t: string) => (footerEl.textContent = t),
+  setPixelFrame: (frame) => {
+    activePixelFrame = frame;
+  },
 };
 
 function flushDisplay() {
+  if (activePixelFrame) {
+    showCanvasScreen();
+    renderPixelFrame(activePixelFrame);
+    return;
+  }
+
+  showTextScreen();
   const padded = [...displayLines];
   while (padded.length < DISPLAY_H) padded.push('');
   displayEl.textContent = padded.map((l) => l.padEnd(DISPLAY_W, ' ')).join('\n');
@@ -382,6 +430,7 @@ function loadGame(id: string) {
 
 const pyGames: Record<string, { name: string; path: string }> = {
   tilt_maze_shared: { name: 'Tilt Maze (shared)', path: 'pygames/tilt_maze_game.py' },
+  pixel_bounce: { name: 'Pixel Bounce (canvas)', path: 'pygames/pixel_bounce.py' },
   python_template: { name: 'Python template', path: '' },
 };
 
