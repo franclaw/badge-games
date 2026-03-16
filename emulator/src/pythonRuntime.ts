@@ -12,8 +12,10 @@ def _oc_get_frame():
     return _last_frame
 
 def _oc_call_update(dt_ms, input_json):
+    global _last_frame
     state = json.loads(input_json)
-    return update(dt_ms, state)
+    _last_frame = update(dt_ms, state)
+    return _last_frame
 `;
 
 export const PY_TEMPLATE = `
@@ -132,7 +134,7 @@ export function createPythonGame(
         const frame = updateFn(dtMs, JSON.stringify(inputState));
 
         let out: PyGameFrame | undefined = pyToJs(frame);
-        if (!out || typeof out !== 'object') {
+        if (!out || typeof out !== 'object' || (!out.pixel && !out.lines)) {
           out = pyToJs(py.runPython('_oc_get_frame()')) as PyGameFrame;
         }
 
